@@ -1,0 +1,36 @@
+{
+	"name": "QuickInstantCommons",
+	"version": "0.1",
+	"author": [
+		"Brian Wolff"
+	],
+	"url": "https://www.mediawiki.org/wiki/Extension:QuickInstantCommons",
+	"descriptionmsg": "quickinstantcommons-desc",
+	"requires": {
+		"MediaWiki": ">= 1.33.3",
+		"platform": {
+			"ext-curl": "*",
+			"php": ">= 7.2.11"
+		}
+	},
+	"license-name": "GPLv2",
+	"type": "other",
+	"MessagesDirs": {
+		"QuickInstantCommons": [
+			"i18n"
+		]
+	},
+	"AutoloadNamespaces": {
+		"MediaWiki\\Extension\\QuickInstantCommons\\": "src/"
+	},
+	"Hooks": {
+	},
+	"callback": "MediaWiki\\Extension\\QuickInstantCommons\\Hooks::setup",
+	"config": {
+		"UseQuickInstantCommons": {
+			"value": true,
+			"description": "Automatically setup wgForeignFileRepos to use this extension"
+		}
+	},
+	"manifest_version": 2
+}

@@ -1,0 +1,8 @@
+This extension is primarily written by Brian Wolff.
+
+It makes liberal use of code from MediaWiki. Please see
+https://raw.githubusercontent.com/wikimedia/mediawiki/master/CREDITS
+for MediaWiki's credits.
+
+In particular, we use modified versions of ForeignAPIRepo, ForeignAPIFile
+and MultiHttpClient from MediaWiki, which are licensed under the GPLv2.

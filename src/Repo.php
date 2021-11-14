@@ -132,6 +132,7 @@ class Repo extends \FileRepo {
 	}
 
 	/**
+	 * @note Its unclear this is ever called in practise for foreign repos.
 	 * @param string[] $files
 	 * @return array
 	 */
@@ -147,17 +148,37 @@ class Repo extends \FileRepo {
 				# same repo.
 				$results[$k] = false;
 				unset( $files[$k] );
-			} elseif ( FileBackend::isStoragePath( $f ) ) {
+				$this->logger->info( "Cannot check existence of virtual url" );
+			} elseif ( \FileBackend::isStoragePath( $f ) ) {
 				$results[$k] = false;
 				unset( $files[$k] );
 				wfWarn( "Got mwstore:// path '$f'." );
+				$this->logger->warn( "Got mwstore:// path {f}", [ 'f' => $f ] );
 			}
 		}
 
-		$data = $this->fetchImageQuery( [
-			'titles' => implode( '|', $files ),
-			'prop' => 'imageinfo' ]
-		);
+		if ( count( $files ) === 1 ) {
+			// If there is only 1 file, not much to be gained by combining
+			// requests, better to use the same form so that we share cache
+			// with general imageinfo requests. This is probably the most
+			// common case as fileExistsBatch is rarely called, and probably
+			// not from anywhere relevant.
+			// Keep in sync with File::newFromTitle.
+			$data = $this->fetchImageQuery( [
+				'titles' => implode( '|', $files ),
+				'iiprop' => File::getProps(),
+				'prop' => 'imageinfo',
+				'iimetadataversion' => \MediaHandler::getMetadataVersion(),
+				'iiextmetadatamultilang' => 1,
+			] );
+		} elseif ( count( $files ) === 0 ) {
+			$data = [];
+		} else {
+			$data = $this->fetchImageQuery( [
+				'titles' => implode( '|', $files ),
+				'prop' => 'imageinfo' ]
+			);
+		}
 
 		if ( isset( $data['query']['pages'] ) ) {
 			# First, get results from the query. Note we only care whether the image exists,

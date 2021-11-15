@@ -24,7 +24,8 @@
 		"MediaWiki\\Extension\\QuickInstantCommons\\": "src/"
 	},
 	"Hooks": {
-		"ContentGetParserOutput": "main"
+		"ContentGetParserOutput": "main",
+		"ImageOpenShowImageInlineBefore": "main"
 	},
 	"HookHandlers": {
 		"main": {

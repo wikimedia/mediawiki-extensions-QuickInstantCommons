@@ -313,7 +313,7 @@ class Repo extends \FileRepo {
 	 * @param array|null &$result Output-only parameter, guaranteed to become an array
 	 * @param string $otherParams
 	 *
-	 * @return string|false
+	 * @return array
 	 */
 	private function getThumbUrl(
 		$name, $width = -1, $height = -1, &$result = null, $otherParams = ''
@@ -331,9 +331,13 @@ class Repo extends \FileRepo {
 			wfDebug( __METHOD__ . " got remote thumb " . $info['thumburl'] );
 			$result = $info;
 
-			return $info['thumburl'];
+			return [
+				'url' => $info['thumburl'],
+				'width' => $info['thumbwidth'],
+				'height' => $info['thumbheight']
+			];
 		} else {
-			return false;
+			return [ 'url' => false, 'width' => null, 'height' => null ];
 		}
 	}
 
@@ -386,7 +390,7 @@ class Repo extends \FileRepo {
 	 * @param int $height
 	 * @param string $params Other rendering parameters (page number, etc)
 	 *   from handler's makeParamString.
-	 * @return bool|string
+	 * @return array
 	 */
 	public function getThumbUrlFromCache( $name, $width, $height, $params = "" ) {
 		$result = null; // can't pass "null" by reference, but it's ok as default value

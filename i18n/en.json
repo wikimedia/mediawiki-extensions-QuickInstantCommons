@@ -2,6 +2,7 @@
 	"@metadata": {
 		"authors": [ "Brian Wolff" ]
 	},
-	"quickinstantcommons-desc": "Allows using images from Wikimedia Commons in a high performance way"
+	"quickinstantcommons-desc": "Allows using images from Wikimedia Commons in a high performance way",
+	"quickinstantcommons-missinghandler": "<div class='toccolours quickinstantcommons-missinghandler' style='margin-bottom: 4px'>The media handler extension for this file format is missing. Advanced image features may not work.</div>"
 }
 

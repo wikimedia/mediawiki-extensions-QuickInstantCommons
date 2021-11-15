@@ -3,8 +3,9 @@ namespace MediaWiki\Extension\QuickInstantCommons;
 
 use MediaWiki\Content\Hook\ContentGetParserOutputHook;
 use MediaWiki\logger\LoggerFactory;
+use MediaWiki\Page\Hook\ImageOpenShowImageInlineBeforeHook;
 
-class Hooks implements ContentGetParserOutputHook {
+class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBeforeHook {
 
 	/** @var \Config */
 	private $config;
@@ -81,6 +82,15 @@ var_dump( "skip" );
 					$repo->prefetchImgMetadata( $res );
 				}
 			}, [ $res ] );
+		}
+	}
+
+	public function onImageOpenShowImageInlineBefore( $imagePage, $output ) {
+		$file = $imagePage->getDisplayedFile();
+		if ( $file && $file instanceof File ) {
+			if ( !$file->getHandler() && $file->canRender() ) {
+				$output->addWikiMsg( 'quickinstantcommons-missinghandler' );
+			}
 		}
 	}
 }

@@ -4,5 +4,6 @@
 			"Brian Wolff"
 		]
 	},
-	"mwoauth-desc": "{{desc|name=QuickInstantCommons|url=https://www.mediawiki.org/wiki/Extension:QuickInstantCommons}}"
+	"quickinstantcommons-desc": "{{desc|name=QuickInstantCommons|url=https://www.mediawiki.org/wiki/Extension:QuickInstantCommons}}",
+	"quickinstantcommons-missinghandler": "Message displayed on file pages above the image if the relavent media handler extension cannot be found. In such cases basic thumbnailing is supported, but advanced features like multiple pages, or media players for videos, are not"
 }

@@ -25,6 +25,7 @@ use MediaWiki\MediaWikiServices;
 use MediaWiki\Permissions\Authority;
 use MediaWiki\User\UserIdentity;
 use MediaWiki\User\UserIdentityValue;
+use ThumbnailImage;
 use Title;
 
 /**
@@ -119,14 +120,29 @@ class File extends \File {
 	}
 
 	/**
+	 * Override to allow thumbnailing images without a handler
+	 * @return bool
+	 */
+	public function canRender() {
+		if ( $this->handler ) {
+			return parent::canRender();
+		} else {
+			// Even if we don't have handler, try to render anyways.
+			// FIXME: Is there some way we could know what width we need, so we
+			// don't end up making multiple requests?
+			return $this->transform( [ 'width' => '100' ] ) instanceof ThumbnailImage;
+		}
+	}
+
+	/**
+	 * @note We add support for thumbnailing images with no handler based on foreign repo
 	 * @param array $params
 	 * @param int $flags
+	 * @suppress PhanTypeMismatchDimFetch
 	 * @return bool|\MediaTransformOutput
 	 */
 	public function transform( $params, $flags = 0 ) {
-		// FIXME: We should be able to render files we don't have local
-		// support for.
-		if ( !$this->canRender() ) {
+		if ( $this->handler && !parent::canRender() ) {
 			// show icon
 			return parent::transform( $params, $flags );
 		}
@@ -136,32 +152,43 @@ class File extends \File {
 			throw new \Exception( "RENDER_NOW not supported by QuickInstantCommons" );
 		}
 
-		// Note, the this->canRender() check above implies
-		// that we have a handler, and it can do makeParamString.
-		$otherParams = $this->handler->makeParamString( $params );
+		$otherParams = $this->handler ? $this->handler->makeParamString( $params ) : null;
 		$width = $params['width'] ?? -1;
 		$height = $params['height'] ?? -1;
 
 		$normalisedParams = $params;
-		$this->handler->normaliseParams( $this, $normalisedParams );
+		if ( $this->handler ) {
+			$this->handler->normaliseParams( $this, $normalisedParams );
+		}
 
-		$thumbName = $this->thumbName( $normalisedParams );
-		$thumbUrl = $this->getThumbUrl( $thumbName );
-		// $thumbPath = $this->getThumbPath( $thumbName );
-		if ( $this->repo->canTransformVia404() ) {
+		$thumbUrl = false;
+		$thumbWidth = $width;
+		$thumbHeight = $height;
+		if ( $this->repo->canTransformVia404() && $this->handler ) {
 			// XXX: Pass in the storage path even though we are not rendering anything
 			// and the path is supposed to be an FS path. This is due to getScalerType()
 			// getting called on the path and clobbering $thumb->getUrl() if it's false.
+			$thumbName = $this->thumbName( $normalisedParams );
+			$thumbUrl = $this->getThumbUrl( $thumbName );
 			$thumb = $this->handler->getTransform( $this, "/dev/null", $thumbUrl, $params );
 		} else {
 			// FIXME also take this path if no handler.
-			$thumbUrl = $this->repo->getThumbUrlFromCache(
+			$res = $this->repo->getThumbUrlFromCache(
 				$this->getName(),
 				$width,
 				$height,
 				$otherParams
 			);
-			if ( $thumbUrl === false ) {
+			$thumbUrl = $res['url'];
+			$thumbWidth = $res['width'];
+			$thumbHeight = $res['height'];
+			// Hacky, try not to use fileicons in the no handler case, as that's not a real thumb.
+			// We're trying to defer rendering to foreign repo, but at the same time we don't
+			// want to use the fallback thumbs.
+			if (
+				$thumbUrl === false ||
+				( !$this->handler && preg_match( '!assets/file-type-icons/fileicon[^/]*\.png$!', $thumbUrl ) )
+			) {
 				global $wgLang;
 
 				return $this->repo->getThumbError(
@@ -174,7 +201,17 @@ class File extends \File {
 			}
 		}
 
-		return $this->handler->getTransform( $this, 'bogus', $thumbUrl, $params );
+		if ( $thumbWidth !== null ) {
+			$params['width'] = $thumbWidth;
+		}
+		if ( $thumbHeight !== null ) {
+			$params['height'] = $thumbHeight;
+		}
+		if ( $this->handler ) {
+			return $this->handler->getTransform( $this, 'bogus', $thumbUrl, $params );
+		} else {
+			return new ThumbnailImage( $this, $thumbUrl, false, $params );
+		}
 	}
 
 	// Info we can get from API...

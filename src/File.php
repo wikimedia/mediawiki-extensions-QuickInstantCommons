@@ -63,15 +63,9 @@ class File extends \File {
 	 */
 	public static function newFromTitle( Title $title, $repo ) {
 		// Important: Keep in sync with repo::fileExistsBatch and repo::prefetchImgMetadata
-		$data = $repo->fetchImageQuery( [
-			'titles' => 'File:' . $title->getDBkey(),
-			'iiprop' => self::getProps(),
-			'prop' => 'imageinfo',
-			'iimetadataversion' => MediaHandler::getMetadataVersion(),
-			// extmetadata is language-dependent, accessing the current language here
-			// would be problematic, so we just get them all
-			'iiextmetadatamultilang' => 1,
-		] );
+		$data = $repo->fetchImageQuery(
+			$repo->getMetadataQuery( $title->getDBkey() )
+		);
 
 		$info = $repo->getImageInfo( $data );
 
@@ -381,6 +375,7 @@ class File extends \File {
 
 	public function purgeCache( $options = [] ) {
 		// FIXME: Add purge metadata cache.
+		$this->repo->purgeMetadata( $this->getName() );
 		$this->purgeDescriptionPage();
 	}
 

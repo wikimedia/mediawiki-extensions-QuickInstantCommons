@@ -28,6 +28,7 @@ use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\Page\PageIdentity;
 use RequestContext;
 use WANObjectCache;
+use Title;
 
 /**
  * A foreign repository for a remote MediaWiki accessible through api.php requests supporting 404 handling.
@@ -170,13 +171,7 @@ class Repo extends \FileRepo {
 			// common case as fileExistsBatch is rarely called, and probably
 			// not from anywhere relevant.
 			// Keep in sync with File::newFromTitle.
-			$data = $this->fetchImageQuery( [
-				'titles' => implode( '|', $files ),
-				'iiprop' => File::getProps(),
-				'prop' => 'imageinfo',
-				'iimetadataversion' => \MediaHandler::getMetadataVersion(),
-				'iiextmetadatamultilang' => 1,
-			] );
+			$data = $this->fetchImageQuery( $this->getMetadataQuery( reset( $files ) ) );
 		} elseif ( count( $files ) === 0 ) {
 			$data = [];
 		} else {
@@ -282,18 +277,18 @@ class Repo extends \FileRepo {
 
 	/**
 	 * @param string $hash
-	 * @return ForeignAPIFile[]
+	 * @return File[]
 	 */
 	public function findBySha1( $hash ) {
 		$results = $this->fetchImageQuery( [
 			'aisha1base36' => $hash,
-			'aiprop' => ForeignAPIFile::getProps(),
+			'aiprop' => File::getProps(),
 			'list' => 'allimages',
 		] );
 		$ret = [];
 		if ( isset( $results['query']['allimages'] ) ) {
 			foreach ( $results['query']['allimages'] as $img ) {
-				$ret[] = new ForeignAPIFile( Title::makeTitle( NS_FILE, $img['name'] ), $this, $img );
+				$ret[] = new File( Title::makeTitle( NS_FILE, $img['name'] ), $this, $img );
 			}
 		}
 
@@ -569,6 +564,23 @@ class Repo extends \FileRepo {
 	}
 
 	/**
+	 * @param string $img No file prefix!
+	 * @note You still have to run through normalizeImageQuery()
+	 */
+	public function getMetadataQuery( $img ) {
+		$query = [
+			'titles' => 'File:' . $img,
+			'iiprop' => File::getProps(),
+			'prop' => 'imageinfo',
+			'iimetadataversion' => \MediaHandler::getMetadataVersion(),
+			// extmetadata is language-dependent, accessing the current language here
+			// would be problematic, so we just get them all
+			'iiextmetadatamultilang' => 1,
+		];
+		return $this->normalizeImageQuery( $query );
+	}
+
+	/**
 	 * Prefetch some images async.
 	 *
 	 * @param string[] $imgs List of files, no File: prefix
@@ -582,16 +594,7 @@ class Repo extends \FileRepo {
 
 		$filesToCacheKey = [];
 		foreach ( $imgs as $img ) {
-			$query = [
-				'titles' => 'File:' . $img,
-				'iiprop' => File::getProps(),
-				'prop' => 'imageinfo',
-				'iimetadataversion' => \MediaHandler::getMetadataVersion(),
-				// extmetadata is language-dependent, accessing the current language here
-				// would be problematic, so we just get them all
-				'iiextmetadatamultilang' => 1,
-			];
-			$query = $this->normalizeImageQuery( $query );
+			$query = $this->getMetadataQuery( $img );
 			$url = $this->turnQueryIntoUrl( $query );
 			$key = $this->turnQueryUrlIntoCacheKey( 'Metadata', $url );
 			$filesToCacheKey[$key] = $img;
@@ -692,6 +695,13 @@ class Repo extends \FileRepo {
 				);
 			}
 		}
+	}
+
+	public function purgeMetadata( $imgName ) {
+		$query = $this->getMetadataQuery( $img );
+		$url = $this->turnQueryIntoUrl( $query );
+		$key = $this->turnQueryUrlIntoCacheKey( 'Metadata', $url );
+		$this->wanCache->delete( $key );
 	}
 
 	public function __destruct() {

@@ -61,9 +61,9 @@ class File extends \File {
 	 * @return File|null
 	 */
 	public static function newFromTitle( Title $title, $repo ) {
-		// Important: Keep in sync with repo::fileExistsBatch and repo::prefetchImgMetadata
 		$data = $repo->fetchImageQuery(
-			$repo->getMetadataQuery( $title->getDBkey() )
+			$repo->getMetadataQuery( $title->getDBkey() ),
+			[ $repo, 'getMetadataCacheTime' ]
 		);
 
 		$info = $repo->getImageInfo( $data );

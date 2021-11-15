@@ -64,6 +64,9 @@ class Repo extends \FileRepo {
 	/** @var string */
 	private $mApiBase;
 
+	/** @var int TTL in seconds for api metadata cache */
+	private $apiMetadataExpiry;
+
 	/** @var MultiHttpClient */
 	private $httpClient;
 
@@ -85,6 +88,8 @@ class Repo extends \FileRepo {
 	// Start probabilistic refresh
 	private const START_PREEMPT_REFRESH = 900;
 
+	private const NEGATIVE_TTL = 30;
+
 	/**
 	 * @param array|null $info
 	 */
@@ -95,6 +100,7 @@ class Repo extends \FileRepo {
 
 		// https://commons.wikimedia.org/w/api.php
 		$this->mApiBase = $info['apibase'] ?? null;
+		$this->apiMetadataExpiry = $info['apiMetadataExpiry'] ?? \IExpiringStore::TTL_DAY;
 
 		if ( !$this->scriptDirUrl ) {
 			// hack for description fetches
@@ -171,7 +177,10 @@ class Repo extends \FileRepo {
 			// common case as fileExistsBatch is rarely called, and probably
 			// not from anywhere relevant.
 			// Keep in sync with File::newFromTitle.
-			$data = $this->fetchImageQuery( $this->getMetadataQuery( reset( $files ) ) );
+			$data = $this->fetchImageQuery(
+				$this->getMetadataQuery( reset( $files ) ),
+				[ $this, 'getMetadataCacheTime' ]
+			);
 		} elseif ( count( $files ) === 0 ) {
 			$data = [];
 		} else {
@@ -219,12 +228,12 @@ class Repo extends \FileRepo {
 
 	/**
 	 * @param array $query
+	 * @param callable|int $cacheTTL
 	 * @return array|null
 	 */
-	public function fetchImageQuery( $query ) {
+	public function fetchImageQuery( $query, $cacheTTL = 3600 ) {
 		$query = $this->normalizeImageQuery( $query );
-		// FIXME change TTL
-		$data = $this->httpGetCached( 'Metadata', $query );
+		$data = $this->httpGetCached( 'Metadata', $query, $cacheTTL );
 
 		if ( $data ) {
 			return FormatJson::decode( $data, true );
@@ -296,6 +305,8 @@ class Repo extends \FileRepo {
 	}
 
 	/**
+	 * @note This is only called if foreign repo does not support 404 handling
+	 *  or media handler is not available.
 	 * @param string $name
 	 * @param int $width
 	 * @param int $height
@@ -313,7 +324,7 @@ class Repo extends \FileRepo {
 			'iiurlwidth' => $width,
 			'iiurlheight' => $height,
 			'iiurlparam' => $otherParams,
-			'prop' => 'imageinfo' ] );
+			'prop' => 'imageinfo' ], [ $this, 'getMetadataCacheTime' ] );
 		$info = $this->getImageInfo( $data );
 
 		if ( $data && $info && isset( $info['thumburl'] ) ) {
@@ -346,7 +357,7 @@ class Repo extends \FileRepo {
 			'iiurlparam' => $otherParams,
 			'prop' => 'imageinfo',
 			'uselang' => $lang,
-		] );
+		], [ $this, 'getMetadataCacheTime' ] );
 		$info = $this->getImageInfo( $data );
 
 		if ( $data && $info && isset( $info['thumberror'] ) ) {
@@ -512,7 +523,7 @@ class Repo extends \FileRepo {
 	 * HTTP GET request to a mediawiki API (with caching)
 	 * @param string $attribute Used in cache key creation, mostly
 	 * @param array $query The query parameters for the API request
-	 * @param int $cacheTTL Time to live for the memcached caching
+	 * @param int|callable $cacheTTL Time to live for the memcached caching or func.
 	 * @return string|null
 	 */
 	public function httpGetCached( $attribute, $query, $cacheTTL = 3600 ) {
@@ -528,16 +539,20 @@ class Repo extends \FileRepo {
 			return $this->prefetchCache[$key];
 		}
 
+		$defaultTTL = is_callable( $cacheTTL ) ? 3600 : $cacheTTL;
+
 		return $this->wanCache->getWithSetCallback(
 			$key,
-			$cacheTTL,
-			function ( $curValue, &$ttl ) use ( $url ) {
+			$defaultTTL,
+			function ( $curValue, &$ttl ) use ( $url, $cacheTTL ) {
 				$html = $this->httpGet( $url );
 				if ( $html !== false ) {
-					// $ttl = $mtime ? $this->wanCache->adaptiveTTL( $mtime, $ttl ) : $ttl;
-
+					if ( is_callable( $cacheTTL ) ) {
+						$ttl = $cacheTTL( $html );
+						$this->logger->debug( "Setting cache ttl for $url = $ttl" );
+					}
 				} else {
-					// $ttl = $this->wanCache->adaptiveTTL( $mtime, $ttl );
+					$ttl = self::NEGATIVE_TTL;
 					$html = null; // caches negatives
 				}
 
@@ -674,6 +689,10 @@ class Repo extends \FileRepo {
 
 			if ( $code == 200 ) {
 				if ( strlen( $body ) < self::MAX_PREFETCH_SIZE ) {
+					// Potential todo: Most of the size is taken up
+					// with metadata/extended metadata. But that's probably
+					// not needed to render an image. Could potentially look
+					// into lazy loading that if memory usage becomes an issue.
 					$this->prefetchCache[$key] = $body;
 				} else {
 					$this->logger->debug(
@@ -681,8 +700,7 @@ class Repo extends \FileRepo {
 						[ 'img' => $imgName ]
 					);
 				}
-				// FIXME TTL.
-				$this->wanCache->set( $key, $body, 3600 );
+				$this->wanCache->set( $key, $body, $this->apiMetadataExpiry );
 			} else {
 				$this->logger->warning(
 					'HTTP request to {url} failed {status} - {err}',
@@ -707,5 +725,19 @@ class Repo extends \FileRepo {
 
 	public function __destruct() {
 		$this->finalizeCacheIfNeeded();
+	}
+
+	public function getMetadataCacheTime( $data ) {
+		$items = FormatJson::decode( $data, true );
+		// If we can't find a timestamp, or we find multiple, don't do adaptive caching.
+		$ts = 0;
+		if ( isset( $items['query']['pages'] ) && count( $items['query']['pages'] ) === 1 ) {
+			$firstPage = reset( $items['query']['pages'] );
+			if ( isset( $firstPage['imageinfo'][0]['timestamp'] ) && count( $firstPage['imageinfo'] ) === 1 ) {
+				$ts = (int)wfTimestamp( TS_UNIX, $firstPage['imageinfo'][0]['timestamp'] );
+			}
+		}
+		// Things that have been modified recently have short cache time.
+		return $this->wanCache->adaptiveTTL( $ts, $this->apiMetadataExpiry, self::NEGATIVE_TTL );
 	}
 }

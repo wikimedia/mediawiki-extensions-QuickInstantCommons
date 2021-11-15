@@ -37,21 +37,12 @@ use Psr\Log\NullLogger;
  *   - url      : HTTP/HTTPS URL
  *   - query    : <query parameter field/value associative array> (uses RFC 3986)
  *   - headers  : <header name/value associative array>
- *   - body     : source to get the HTTP request body from;
- *                this can simply be a string (always), a resource for
- *                PUT requests, and a field/value array for POST request;
- *                array bodies are encoded as multipart/form-data and strings
- *                use application/x-www-form-urlencoded (headers sent automatically)
  *   - stream   : resource to stream the HTTP response body to
  *   - proxy    : HTTP proxy to use
  *   - flags    : map of boolean flags which supports:
  *                  - relayResponseHeaders : write out header via header()
  * Request maps can use integer index 0 instead of 'method' and 1 instead of 'url'.
  *
- * Since 1.35, callers should use HttpRequestFactory::createMultiClient() to get
- * a client object with appropriately configured timeouts.
- *
- * @since 1.23
  */
 class MultiHttpClient implements LoggerAwareInterface {
 	/** @var resource curl_multi_init() handle */
@@ -66,9 +57,15 @@ class MultiHttpClient implements LoggerAwareInterface {
 	protected $reqTimeout = 30;
 	/** @var float */
 	protected $maxReqTimeout = INF;
-	/** @var bool NOTE: This is changed from core */
+	/**
+	 * @var bool
+	 * @note This is changed from core!!!
+	 */
 	protected $usePipelining = true;
-	/** @var int */
+	/**
+	 * @var int
+	 * @note Now that we use PIPEWAIT, this probably does very little.
+	 */
 	protected $maxConnsPerHost = 50;
 	/** @var string|null proxy */
 	protected $proxy;
@@ -76,11 +73,13 @@ class MultiHttpClient implements LoggerAwareInterface {
 	protected $userAgent = 'QuickInstantCommons';
 	/** @var LoggerInterface */
 	protected $logger;
-
-	// In PHP 7 due to https://bugs.php.net/bug.php?id=76480 the request/connect
-	// timeouts are periodically polled instead of being accurately respected.
-	// The select timeout is set to the minimum timeout multiplied by this factor.
-	private const TIMEOUT_ACCURACY_FACTOR = 0.1;
+	// Hacky state sharing to make async requests work.
+	private $handles = [];
+	// allegedly reusing curl handlers make things faster. When measuring
+	// it seemed to very roughly be a 2-4% speed improvement.
+	private $curlHandleCache = null;
+	// state for doin an async request.
+	private $inFlightState = null;
 
 	/**
 	 * Since 1.35, callers should use HttpRequestFactory::createMultiClient() to get
@@ -179,6 +178,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 * @throws Exception
 	 */
 	public function runMulti( array $reqs, array $opts = [] ) {
+		$this->assertNotInAsyncRequest();
 		$this->normalizeRequests( $reqs );
 		$opts += [ 'connTimeout' => $this->connTimeout, 'reqTimeout' => $this->reqTimeout ];
 
@@ -190,9 +190,65 @@ class MultiHttpClient implements LoggerAwareInterface {
 		}
 
 		if ( $this->isCurlEnabled() ) {
-			return $this->runMultiCurl( $reqs, $opts );
+			$this->runMultiCurl( $reqs, $opts );
+			return $this->runMultiCurlFinish( $reqs, $opts );
 		} else {
 			throw new Exception( "Curl php extension needs to be installed" );
+		}
+	}
+
+	/**
+	 * Fetch some stuff async.
+	 *
+	 * After you call this, you must call finishMultiAsync to get the result.
+	 *
+	 * Once you started a runMultiAsync, you must not call runMultiAsync or
+	 * runMulti until after you have called finishMultiAsync.
+	 *
+	 * @param array $reqs List of requests, containing method and url
+	 * @param array $opts List of opts
+	 */
+	public function runMultiAsync( array $reqs, array $opts = [] ) {
+		$this->assertNotInAsyncRequest();
+		$this->normalizeRequests( $reqs );
+		$opts += [ 'connTimeout' => $this->connTimeout, 'reqTimeout' => $this->reqTimeout ];
+
+		if ( $opts['connTimeout'] > $this->maxConnTimeout ) {
+			$opts['connTimeout'] = $this->maxConnTimeout;
+		}
+		if ( $opts['reqTimeout'] > $this->maxReqTimeout ) {
+			$opts['reqTimeout'] = $this->maxReqTimeout;
+		}
+
+		if ( $this->isCurlEnabled() ) {
+			$this->runMultiCurl( $reqs, $opts );
+			$this->inFlightState = [ $reqs, $opts ];
+		} else {
+			throw new Exception( "Curl php extension needs to be installed" );
+		}
+	}
+
+	public function finishMultiAsync() {
+		// This is the simplest version. An improved version could allow overlapping requests,
+		// and manage if someone requests a url in sync fashion that was previously asynced, etc.
+		// Maybe with callbacks instead. But that sounds really complicated.
+
+		if ( !$this->inAsyncRequest() ) {
+			throw new LogicException( "Not in an async request!" );
+		}
+
+		$res = $this->runMultiCurlFinish( $this->inFlightState[0], $this->inFlightState[1] );
+		$this->inFlightState = null;
+		return $res;
+	}
+
+	public function inAsyncRequest() {
+		return $this->inFlightState !== null;
+	}
+
+	private function AssertNotInAsyncRequest() {
+		if ( $this->inFlightState !== null ) {
+			throw new LogicException( "Async request already in flight" );
 		}
 	}
 
@@ -212,7 +268,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 *
 	 * @see MultiHttpClient::runMulti()
 	 *
-	 * @param array[] $reqs Map of HTTP request arrays
+	 * @param array[] &$reqs Map of HTTP request arrays
 	 * @param array $opts
 	 *   - connTimeout     : connection timeout per request (seconds)
 	 *   - reqTimeout      : post-connection timeout per request (seconds)
@@ -223,44 +279,65 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 * @throws Exception
 	 * @suppress PhanTypeInvalidDimOffset
 	 */
-	private function runMultiCurl( array $reqs, array $opts ) {
+	private function runMultiCurl( array &$reqs, array $opts ) {
 		$chm = $this->getCurlMulti( $opts );
 
-		$selectTimeout = $this->getSelectTimeout( $opts );
-
 		// Add all of the required cURL handles...
-		$handles = [];
-		foreach ( $reqs as $index => &$req ) {
-			$handles[$index] = $this->getCurlHandle( $req, $opts );
-			curl_multi_add_handle( $chm, $handles[$index] );
+		if ( count( $this->handles ) !== 0 ) {
+			throw new Exception( "Async req in progress" );
 		}
-		unset( $req ); // don't assign over this by accident
+		foreach ( $reqs as $index => &$req ) {
+			// Note: getCurlHandle modifies $req!!
+			$this->handles[$index] = $this->getCurlHandle( $req, $opts );
+			curl_multi_add_handle( $chm, $this->handles[$index] );
+		}
+		// unset( $req ); // don't assign over this by accident
+		$active = null;
+		// Send all data that is waiting to be sent.
+		do {
+			$mrc = curl_multi_exec( $chm, $active );
+		} while ( $mrc == CURLM_CALL_MULTI_PERFORM );
+	}
 
+	private function runMultiCurlFinish( array &$reqs, array $opts ) {
+		$selectTimeout = $this->getSelectTimeout( $opts );
 		$infos = [];
 		// Execute the cURL handles concurrently...
 		$active = null; // handles still being processed
 		do {
-			// Do any available work...
+			// Send/recieve all pending data. e.g. read responses.
 			do {
-				$mrc = curl_multi_exec( $chm, $active );
-				$info = curl_multi_info_read( $chm );
+				$mrc = curl_multi_exec( $this->cmh, $active );
+				// A request probably completed, so read its info.
+				$info = curl_multi_info_read( $this->cmh );
 				if ( $info !== false ) {
 					$infos[(int)$info['handle']] = $info;
 				}
+			// In old versions of curl, we had to loop this. Should not matter in new versions.
 			} while ( $mrc == CURLM_CALL_MULTI_PERFORM );
+
 			// Wait (if possible) for available work...
-			if ( $active > 0 && $mrc == CURLM_OK && curl_multi_select( $chm, $selectTimeout ) == -1 ) {
-				// This bug should be fixed now!
+			if ( $active > 0 && $mrc == CURLM_OK && curl_multi_select( $this->cmh, $selectTimeout ) == -1 ) {
+				// This bug should be fixed now in theory!
+				// So we should not reach this code unless we hit the select timeout.
 				// PHP bug 63411; https://curl.haxx.se/libcurl/c/curl_multi_fdset.html
-				// usleep( 5000 ); // 5ms
+				usleep( 5000 ); // 5ms
 			}
 		} while ( $active > 0 && $mrc == CURLM_OK );
 
+		// Make sure we got them all.
+		$info = false;
+		do {
+			$info = curl_multi_info_read( $this->cmh );
+			if ( $info !== false ) {
+				$infos[(int)$info['handle']] = $info;
+			}
+		} while ( $info );
+
 		// Remove all of the added cURL handles and check for errors...
 		foreach ( $reqs as $index => &$req ) {
-			$ch = $handles[$index];
-			curl_multi_remove_handle( $chm, $ch );
-
+			$ch = $this->handles[$index];
+			curl_multi_remove_handle( $this->cmh, $ch );
 			if ( isset( $infos[(int)$ch] ) ) {
 				$info = $infos[(int)$ch];
 				$errno = $info['result'];
@@ -299,8 +376,14 @@ class MultiHttpClient implements LoggerAwareInterface {
 			$req['response'][2] = $req['response']['headers'];
 			$req['response'][3] = $req['response']['body'];
 			$req['response'][4] = $req['response']['error'];
-			curl_close( $ch );
+			if ( !$this->curlHandleCache ) {
+				// reuse the handle
+				$this->curlHandleCache = $ch;
+			} else {
+				curl_close( $ch );
+			}
 		}
+		$this->handles = [];
 		unset( $req ); // don't assign over this by accident
 
 		return $reqs;
@@ -318,10 +401,17 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 */
 	protected function getCurlHandle( array &$req, array $opts ) {
 		// TODO: I did a test of reusing curl handles. On a long page, that caused time
-		// to go from 139 seconds -> 135. Did not seem worth it for 4 seconds, but
-		// might revisit later.
-		$ch = curl_init();
+		// to go from 139 seconds -> 135. On a medium page it went 19.0 -> 18.1 seconds.
+		// For simplicity, only cache a single handler
+		if ( $this->curlHandleCache ) {
+			$ch = $this->curlHandleCache;
+			$this->curlHandleCache = null;
+		} else {
+			$ch = curl_init();
+		}
 
+		// Prefer to use HTTP/2 multiplexing over multiple connections.
+		curl_setopt( $ch, CURLOPT_PIPEWAIT, 1 );
 		curl_setopt( $ch, CURLOPT_PROXY, $req['proxy'] ?? $this->proxy );
 		curl_setopt( $ch, CURLOPT_CONNECTTIMEOUT_MS, intval( $opts['connTimeout'] * 1e3 ) );
 		curl_setopt( $ch, CURLOPT_TIMEOUT_MS, intval( $opts['reqTimeout'] * 1e3 ) );
@@ -410,6 +500,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 * @throws Exception
 	 */
 	protected function getCurlMulti( array $opts ) {
+		// Note, this is access directly by other methods!
 		if ( !$this->cmh ) {
 			$cmh = curl_multi_init();
 			// Limit the size of the idle connection cache such that consecutive parallel
@@ -512,7 +603,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 			return 1;
 		}
 
-		$selectTimeout = min( $timeouts ) * self::TIMEOUT_ACCURACY_FACTOR;
+		$selectTimeout = min( $timeouts );
 		// Minimum 10us for sanity
 		if ( $selectTimeout < 10e-6 ) {
 			$selectTimeout = 10e-6;
@@ -532,6 +623,9 @@ class MultiHttpClient implements LoggerAwareInterface {
 	public function __destruct() {
 		if ( $this->cmh ) {
 			curl_multi_close( $this->cmh );
+		}
+		if ( $this->curlHandleCache ) {
+			curl_close( $this->curlHandleCache );
 		}
 	}
 }

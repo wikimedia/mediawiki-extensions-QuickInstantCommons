@@ -62,6 +62,7 @@ class File extends \File {
 	 * @return ForeignAPIFile|null
 	 */
 	public static function newFromTitle( Title $title, $repo ) {
+		// Important: Keep in sync with repo::fileExistsBatch and repo::prefetchImgMetadata
 		$data = $repo->fetchImageQuery( [
 			'titles' => 'File:' . $title->getDBkey(),
 			'iiprop' => self::getProps(),

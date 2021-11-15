@@ -1,13 +1,13 @@
 {
 	"name": "QuickInstantCommons",
-	"version": "0.1",
+	"version": "0.2",
 	"author": [
 		"Brian Wolff"
 	],
 	"url": "https://www.mediawiki.org/wiki/Extension:QuickInstantCommons",
 	"descriptionmsg": "quickinstantcommons-desc",
 	"requires": {
-		"MediaWiki": ">= 1.33.3",
+		"MediaWiki": ">= 1.35",
 		"platform": {
 			"ext-curl": "*",
 			"php": ">= 7.2.11"
@@ -24,12 +24,30 @@
 		"MediaWiki\\Extension\\QuickInstantCommons\\": "src/"
 	},
 	"Hooks": {
+		"ContentGetParserOutput": "main"
+	},
+	"HookHandlers": {
+		"main": {
+			"class": "MediaWiki\\Extension\\QuickInstantCommons\\Hooks",
+			"services": [
+				"MainConfig",
+				"RepoGroup"
+			]
+		}
 	},
 	"callback": "MediaWiki\\Extension\\QuickInstantCommons\\Hooks::setup",
 	"config": {
 		"UseQuickInstantCommons": {
 			"value": true,
 			"description": "Automatically setup wgForeignFileRepos to use this extension"
+		},
+		"QuickInstantCommonsPrefetch": {
+			"value": true,
+			"description": "Use the previous revisions image list, and try and prefetch in background"
+		},
+		"QuickInstantCommonsPrefetchMaxLimit": {
+			"value": 1000,
+			"description": "Max number of images to prefetch"
 		}
 	},
 	"manifest_version": 2

@@ -45,10 +45,6 @@ use WANObjectCache;
  * @ingroup FileRepo
  */
 class Repo extends \FileRepo {
-	/* This version string is used in the user agent for requests and will help
-	 * server maintainers in identify ForeignAPI usage.
-	 * Update the version every time you make breaking or significant changes. */
-	private const VERSION = "1.0";
 
 	/**
 	 * List of iiprop values for the thumbnail fetch queries.
@@ -60,10 +56,7 @@ class Repo extends \FileRepo {
 
 	protected $fileFactory = [ File::class, 'newFromTitle' ];
 
-	/** @var int Redownload thumbnail files after this expiry */
-	protected $fileCacheExpiry = 2592000; // 1 month (30*24*3600)
-
-	/** @var array */
+	/** @var array FIXME: is this even used? */
 	protected $mFileExists = [];
 
 	/** @var string */
@@ -72,7 +65,23 @@ class Repo extends \FileRepo {
 	/** @var MultiHttpClient */
 	private $httpClient;
 
+	/** @var Psr\Log\LoggerInterface */
 	private $logger;
+
+	/**
+	 * @var array
+	 * This is the cache of prefetched images. The cache
+	 * is rather stateful in an ugly way. We keep it around
+	 * until the next time we parse a page, and hope parsing is
+	 * just never interleaved.
+	 */
+	private $prefetchCache = [];
+
+	private const MAX_PREFETCH_SIZE = 1024 * 100;
+	// Always refresh if TTL this low.
+	private const MIN_TTL_REFRESH = 10;
+	// Start probabilistic refresh
+	private const START_PREEMPT_REFRESH = 900;
 
 	/**
 	 * @param array|null $info
@@ -87,9 +96,6 @@ class Repo extends \FileRepo {
 
 		if ( isset( $info['apiThumbCacheExpiry'] ) ) {
 			$this->apiThumbCacheExpiry = $info['apiThumbCacheExpiry'];
-		}
-		if ( isset( $info['fileCacheExpiry'] ) ) {
-			$this->fileCacheExpiry = $info['fileCacheExpiry'];
 		}
 		if ( !$this->scriptDirUrl ) {
 			// hack for description fetches
@@ -221,6 +227,24 @@ class Repo extends \FileRepo {
 	 * @return array|null
 	 */
 	public function fetchImageQuery( $query ) {
+		$query = $this->normalizeImageQuery( $query );
+		// FIXME change TTL
+		$data = $this->httpGetCached( 'Metadata', $query );
+
+		if ( $data ) {
+			return FormatJson::decode( $data, true );
+		} else {
+			return null;
+		}
+	}
+
+	/**
+	 * Normalize query options when fetching from foreign api
+	 *
+	 * @param array $query
+	 * @return array
+	 */
+	private function normalizeImageQuery( $query ) {
 		global $wgLanguageCode;
 
 		$query = array_merge( $query,
@@ -233,14 +257,7 @@ class Repo extends \FileRepo {
 		if ( !isset( $query['uselang'] ) ) { // uselang is unset or null
 			$query['uselang'] = $wgLanguageCode;
 		}
-
-		$data = $this->httpGetCached( 'Metadata', $query );
-
-		if ( $data ) {
-			return FormatJson::decode( $data, true );
-		} else {
-			return null;
-		}
+		return $query;
 	}
 
 	/**
@@ -441,12 +458,9 @@ class Repo extends \FileRepo {
 	 * @param string $url
 	 * @return string|false
 	 */
-	public function httpGet(
+	protected function httpGet(
 		$url
 	) {
-		/* Http::get */
-		$url = wfExpandUrl( $url, PROTO_HTTP );
-		wfDebug( "ForeignAPIRepo: HTTP GET: $url" );
 		$arg = [
 			'method' => "GET",
 			'url' => $url
@@ -480,6 +494,26 @@ class Repo extends \FileRepo {
 	}
 
 	/**
+	 * @param array $query Associative array of query options
+	 * @return string Url to fetch
+	 */
+	private function turnQueryIntoUrl( $query ) {
+		if ( $this->mApiBase ) {
+			$url = wfAppendQuery( $this->mApiBase, $query );
+		} else {
+			$url = $this->makeUrl( $query, 'api' );
+		}
+
+		return wfExpandUrl( $url, PROTO_HTTP );
+	}
+
+	private function turnQueryUrlIntoCacheKey( $attribute, $url ) {
+		// Not clear what the point of attribute here, if the result is
+		// functionally determined by url...
+		return $this->getLocalCacheKey( $attribute, sha1( $url ) );
+	}
+
+	/**
 	 * HTTP GET request to a mediawiki API (with caching)
 	 * @param string $attribute Used in cache key creation, mostly
 	 * @param array $query The query parameters for the API request
@@ -487,14 +521,20 @@ class Repo extends \FileRepo {
 	 * @return string|null
 	 */
 	public function httpGetCached( $attribute, $query, $cacheTTL = 3600 ) {
-		if ( $this->mApiBase ) {
-			$url = wfAppendQuery( $this->mApiBase, $query );
-		} else {
-			$url = $this->makeUrl( $query, 'api' );
+		$this->finalizeCacheIfNeeded();
+		$url = $this->turnQueryIntoUrl( $query );
+		$key = $this->turnQueryUrlIntoCacheKey( $attribute, $url );
+		if ( isset( $this->prefetchCache[$key] ) ) {
+			$this->logger->debug( "Got {key} [{url}] from prefetch cache",
+				[
+					'key' => $key,
+					'url' => $url
+				] );
+			return $this->prefetchCache[$key];
 		}
 
 		return $this->wanCache->getWithSetCallback(
-			$this->getLocalCacheKey( $attribute, sha1( $url ) ),
+			$key,
 			$cacheTTL,
 			function ( $curValue, &$ttl ) use ( $url ) {
 				$html = $this->httpGet( $url );
@@ -526,5 +566,135 @@ class Repo extends \FileRepo {
 	 */
 	protected function assertWritableRepo() {
 		throw new MWException( static::class . ': write operations are not supported.' );
+	}
+
+	/**
+	 * Prefetch some images async.
+	 *
+	 * @param string[] $imgs List of files, no File: prefix
+	 */
+	public function prefetchImgMetadata( array $imgs ) {
+		// Clear cache.
+		$this->prefetchCache = [];
+
+		// Open question - is there a benefit to sending multiple titles in a single query
+		// over sending many requests when using http/2?
+
+		$filesToCacheKey = [];
+		foreach ( $imgs as $img ) {
+			$query = [
+				'titles' => 'File:' . $img,
+				'iiprop' => File::getProps(),
+				'prop' => 'imageinfo',
+				'iimetadataversion' => \MediaHandler::getMetadataVersion(),
+				// extmetadata is language-dependent, accessing the current language here
+				// would be problematic, so we just get them all
+				'iiextmetadatamultilang' => 1,
+			];
+			$query = $this->normalizeImageQuery( $query );
+			$url = $this->turnQueryIntoUrl( $query );
+			$key = $this->turnQueryUrlIntoCacheKey( 'Metadata', $url );
+			$filesToCacheKey[$key] = $img;
+			$filesToCacheUrl[$img] = [ $url, $key ];
+		}
+
+		$this->logger->debug(
+			"Async prefetching {count} images via wancache",
+			[ 'count' => count( $filesToCacheKey ) ]
+		);
+		// todo We could use second curTTL argument to probabilistically refresh.
+		$ttls = [];
+		$res = $this->wanCache->getMulti( array_keys( $filesToCacheKey ), $ttls );
+
+		foreach ( $res as $key => $resp ) {
+			$imgName = $filestoCacheKey[$key];
+			$curTTLAdj = max( 0, $ttls[$key] - self::MIN_TTL_REFRESH );
+			// FIXME these values were chosen randomly.
+			$chance = 1 - $curTTL / self::START_PREEMPT_REFRESH;
+			$decision = mt_rand( 1, 1000000000 ) <= 1000000000 * $chance;
+			if ( $decision ) {
+				// Based on WanObjectCache::worthRefreshExpiring
+				if ( $decision ) {
+				$this->logger->debug( "preemptively refreshing {file} [{key}] during prefetch. ttl={ttl}", [
+					'file' => $imgName,
+					'key' => $key,
+					'ttl' => $ttls[$key]
+				] );
+				}
+
+			} else {
+				if ( strlen( $resp ) < self::MAX_PREFETCH_SIZE ) {
+					// Don't store really large files. PDFs have
+					// whole text layer. potential OOM risk.
+					$this->prefetchCache[$key] = $resp;
+					unset( $filesToCacheUrl[$imgName] );
+				} else {
+					$this->logger->debug(
+						"Skipping storing {img} from wancache. Too big",
+						[ 'img' => $imgName ]
+					);
+				}
+			}
+		}
+
+		$reqs = [];
+		foreach ( $filesToCacheUrl as $imgName => $info ) {
+			list( $url, $key ) = $info;
+			$reqs[] = [
+				'method' => 'GET',
+				'url' => $url,
+				'_imgName' => $imgName,
+				'_key' => $key
+			];
+		}
+
+		$this->logger->debug( "Async prefetching {count} images via HTTP", [ 'count' => count( $reqs ) ] );
+		$this->httpClient->runMultiAsync( $reqs );
+	}
+
+	public function finalizeCacheIfNeeded() {
+		if ( !$this->httpClient->inAsyncRequest() ) {
+			return;
+		}
+
+		$results = $this->httpClient->finishMultiAsync();
+		$this->logger->debug( "Got http prefetch for {count} files", [ 'count' => count( $results ) ] );
+		foreach ( $results as $res ) {
+			list( $code, , ,$body, $err ) = $res['response'];
+			$imgName = $res['_imgName'];
+			$key = $res['_key'];
+
+			if ( !$imgName || !$key ) {
+				throw new LogicException( "Missing imgname/key" );
+			}
+
+			if ( $code == 200 ) {
+				if ( strlen( $body ) < self::MAX_PREFETCH_SIZE ) {
+					$this->prefetchCache[$key] = $body;
+				} else {
+					$this->logger->debug(
+						"Skipping storing {img} from http. Too big",
+						[ 'img' => $imgName ]
+					);
+				}
+				// FIXME TTL.
+				$this->wanCache->set( $key, $body, 3600 );
+			} else {
+				$this->logger->warning(
+					'HTTP request to {url} failed {status} - {err}',
+					[
+						'caller' => __METHOD__,
+						'url' => $res['url'],
+						'status' => $code,
+						'err' => $err,
+						'imgName' => $imgName
+					]
+				);
+			}
+		}
+	}
+
+	public function __destruct() {
+		$this->finalizeCacheIfNeeded();
 	}
 }

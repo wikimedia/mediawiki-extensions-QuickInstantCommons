@@ -22,6 +22,8 @@
  */
 namespace MediaWiki\Extension\QuickInstantCommons;
 
+use Exception;
+use LogicException;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -237,6 +239,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 			throw new LogicException( "Not in an async request!" );
 		}
 
+		// @phan-suppress-next-line PhanTypeArraySuspiciousNullable
 		$res = $this->runMultiCurlFinish( $this->inFlightState[0], $this->inFlightState[1] );
 		$this->inFlightState = null;
 		return $res;
@@ -275,9 +278,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 *   - usePipelining   : whether to use HTTP pipelining if possible
 	 *   - maxConnsPerHost : maximum number of concurrent connections (per host)
 	 * @phan-param array{connTimeout?:int,reqTimeout?:int,usePipelining?:bool,maxConnsPerHost?:int} $opts
-	 * @return array $reqs With response array populated for each
 	 * @throws Exception
-	 * @suppress PhanTypeInvalidDimOffset
 	 */
 	private function runMultiCurl( array &$reqs, array $opts ) {
 		$chm = $this->getCurlMulti( $opts );
@@ -299,6 +300,14 @@ class MultiHttpClient implements LoggerAwareInterface {
 		} while ( $mrc == CURLM_CALL_MULTI_PERFORM );
 	}
 
+	/**
+	 * Complete all the queued up requests
+	 *
+	 * @param array &$reqs
+	 * @param array $opts
+	 * @return array List of requests and their results
+	 * @suppress PhanTypeInvalidDimOffset
+	 */
 	private function runMultiCurlFinish( array &$reqs, array $opts ) {
 		$selectTimeout = $this->getSelectTimeout( $opts );
 		$infos = [];
@@ -346,7 +355,8 @@ class MultiHttpClient implements LoggerAwareInterface {
 					if ( function_exists( 'curl_strerror' ) ) {
 						$req['response']['error'] .= " " . curl_strerror( $errno );
 					}
-					$this->logger->warning( "Error fetching URL \"{$req['url']}\": " .
+					// @phan-suppress-next-line PhanTypeConversionFromArray
+					$this->logger->warning( "Error fetching URL \"" . $req['url'] . "\": " .
 						$req['response']['error'] );
 				} else {
 					$this->logger->debug(
@@ -396,6 +406,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 * @param array $opts
 	 *   - connTimeout : default connection timeout
 	 *   - reqTimeout : default request timeout
+	 * @suppress PhanTypePossiblyInvalidDimOffset
 	 * @return resource
 	 * @throws Exception
 	 */

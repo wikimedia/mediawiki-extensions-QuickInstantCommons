@@ -8,7 +8,7 @@ class Hooks implements ContentGetParserOutputHook {
 
 	/** @var \Config */
 	private $config;
-	/** @var Psr\Log\LoggerInterface */
+	/** @var \Psr\Log\LoggerInterface */
 	private $logger;
 	/** @var \RepoGroup */
 	private $repoGroup;

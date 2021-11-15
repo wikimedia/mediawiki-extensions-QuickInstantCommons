@@ -26,9 +26,10 @@ use FormatJson;
 use MediaWiki\Linker\LinkTarget;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\Page\PageIdentity;
+use MWException;
 use RequestContext;
-use WANObjectCache;
 use Title;
+use WANObjectCache;
 
 /**
  * A foreign repository for a remote MediaWiki accessible through api.php requests supporting 404 handling.
@@ -66,7 +67,7 @@ class Repo extends \FileRepo {
 	/** @var MultiHttpClient */
 	private $httpClient;
 
-	/** @var Psr\Log\LoggerInterface */
+	/** @var \Psr\Log\LoggerInterface */
 	private $logger;
 
 	/**
@@ -95,9 +96,6 @@ class Repo extends \FileRepo {
 		// https://commons.wikimedia.org/w/api.php
 		$this->mApiBase = $info['apibase'] ?? null;
 
-		if ( isset( $info['apiThumbCacheExpiry'] ) ) {
-			$this->apiThumbCacheExpiry = $info['apiThumbCacheExpiry'];
-		}
 		if ( !$this->scriptDirUrl ) {
 			// hack for description fetches
 			$this->scriptDirUrl = dirname( $this->mApiBase );
@@ -128,6 +126,7 @@ class Repo extends \FileRepo {
 	 *
 	 * @param PageIdentity|LinkTarget|string $title
 	 * @param string|bool $time
+	 * @suppress PhanTypeMismatchReturnSuperType
 	 * @return File|false
 	 */
 	public function newFile( $title, $time = false ) {
@@ -135,6 +134,7 @@ class Repo extends \FileRepo {
 			return false;
 		}
 
+		// This actually does return our type of File and not the base class.
 		return parent::newFile( $title, $time );
 	}
 
@@ -160,7 +160,7 @@ class Repo extends \FileRepo {
 				$results[$k] = false;
 				unset( $files[$k] );
 				wfWarn( "Got mwstore:// path '$f'." );
-				$this->logger->warn( "Got mwstore:// path {f}", [ 'f' => $f ] );
+				$this->logger->warning( "Got mwstore:// path {f}", [ 'f' => $f ] );
 			}
 		}
 
@@ -332,7 +332,7 @@ class Repo extends \FileRepo {
 	 * @param int $height
 	 * @param string $otherParams
 	 * @param string|null $lang Language code for language of error
-	 * @return bool|MediaTransformError
+	 * @return bool|\MediaTransformError
 	 * @since 1.22
 	 */
 	public function getThumbError(
@@ -352,7 +352,7 @@ class Repo extends \FileRepo {
 		if ( $data && $info && isset( $info['thumberror'] ) ) {
 			wfDebug( __METHOD__ . " got remote thumb error " . $info['thumberror'] );
 
-			return new MediaTransformError(
+			return new \MediaTransformError(
 				'thumbnail_error_remote',
 				$width,
 				$height,
@@ -565,7 +565,7 @@ class Repo extends \FileRepo {
 
 	/**
 	 * @param string $img No file prefix!
-	 * @note You still have to run through normalizeImageQuery()
+	 * @return array URL query parameters
 	 */
 	public function getMetadataQuery( $img ) {
 		$query = [
@@ -593,6 +593,7 @@ class Repo extends \FileRepo {
 		// over sending many requests when using http/2?
 
 		$filesToCacheKey = [];
+		$filesToCacheUrl = [];
 		foreach ( $imgs as $img ) {
 			$query = $this->getMetadataQuery( $img );
 			$url = $this->turnQueryIntoUrl( $query );
@@ -610,10 +611,10 @@ class Repo extends \FileRepo {
 		$res = $this->wanCache->getMulti( array_keys( $filesToCacheKey ), $ttls );
 
 		foreach ( $res as $key => $resp ) {
-			$imgName = $filestoCacheKey[$key];
+			$imgName = $filesToCacheKey[$key];
 			$curTTLAdj = max( 0, $ttls[$key] - self::MIN_TTL_REFRESH );
 			// FIXME these values were chosen randomly.
-			$chance = 1 - $curTTL / self::START_PREEMPT_REFRESH;
+			$chance = 1 - $curTTLAdj / self::START_PREEMPT_REFRESH;
 			$decision = mt_rand( 1, 1000000000 ) <= 1000000000 * $chance;
 			if ( $decision ) {
 				// Based on WanObjectCache::worthRefreshExpiring
@@ -668,7 +669,7 @@ class Repo extends \FileRepo {
 			$key = $res['_key'];
 
 			if ( !$imgName || !$key ) {
-				throw new LogicException( "Missing imgname/key" );
+				throw new \LogicException( "Missing imgname/key" );
 			}
 
 			if ( $code == 200 ) {
@@ -698,7 +699,7 @@ class Repo extends \FileRepo {
 	}
 
 	public function purgeMetadata( $imgName ) {
-		$query = $this->getMetadataQuery( $img );
+		$query = $this->getMetadataQuery( $imgName );
 		$url = $this->turnQueryIntoUrl( $query );
 		$key = $this->turnQueryUrlIntoCacheKey( 'Metadata', $url );
 		$this->wanCache->delete( $key );

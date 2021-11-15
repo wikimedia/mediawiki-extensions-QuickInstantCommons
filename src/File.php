@@ -21,7 +21,6 @@
  */
 namespace MediaWiki\Extension\QuickInstantCommons;
 
-use MediaHandler;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Permissions\Authority;
 use MediaWiki\User\UserIdentity;
@@ -43,7 +42,7 @@ class File extends \File {
 
 	/**
 	 * @param Title|string|bool $title
-	 * @param ForeignApiRepo $repo
+	 * @param Repo $repo
 	 * @param array $info
 	 * @param bool $exists
 	 */
@@ -58,8 +57,8 @@ class File extends \File {
 
 	/**
 	 * @param Title $title
-	 * @param ForeignApiRepo $repo
-	 * @return ForeignAPIFile|null
+	 * @param Repo $repo
+	 * @return File|null
 	 */
 	public static function newFromTitle( Title $title, $repo ) {
 		// Important: Keep in sync with repo::fileExistsBatch and repo::prefetchImgMetadata
@@ -122,7 +121,7 @@ class File extends \File {
 	/**
 	 * @param array $params
 	 * @param int $flags
-	 * @return bool|MediaTransformOutput
+	 * @return bool|\MediaTransformOutput
 	 */
 	public function transform( $params, $flags = 0 ) {
 		// FIXME: We should be able to render files we don't have local
@@ -134,7 +133,7 @@ class File extends \File {
 
 		if ( $flags & self::RENDER_NOW ) {
 			// what would this even mean?
-			throw new Exception( "RENDER_NOW not supported by QuickInstantCommons" );
+			throw new \Exception( "RENDER_NOW not supported by QuickInstantCommons" );
 		}
 
 		// Note, the this->canRender() check above implies
@@ -338,7 +337,7 @@ class File extends \File {
 	 */
 	public function getMimeType() {
 		if ( !isset( $this->mInfo['mime'] ) ) {
-			$magic = MediaWiki\MediaWikiServices::getInstance()->getMimeAnalyzer();
+			$magic = \MediaWiki\MediaWikiServices::getInstance()->getMimeAnalyzer();
 			$this->mInfo['mime'] = $magic->getMimeTypeFromExtensionOrNull( $this->getExtension() );
 		}
 
@@ -352,7 +351,7 @@ class File extends \File {
 		if ( isset( $this->mInfo['mediatype'] ) ) {
 			return $this->mInfo['mediatype'];
 		}
-		$magic = MediaWiki\MediaWikiServices::getInstance()->getMimeAnalyzer();
+		$magic = \MediaWiki\MediaWikiServices::getInstance()->getMimeAnalyzer();
 
 		return $magic->getMediaType( null, $this->getMimeType() );
 	}
@@ -374,7 +373,7 @@ class File extends \File {
 	}
 
 	public function purgeCache( $options = [] ) {
-		// FIXME: Add purge metadata cache.
+		// @phan-suppress-next-line PhanUndeclaredMethod
 		$this->repo->purgeMetadata( $this->getName() );
 		$this->purgeDescriptionPage();
 	}

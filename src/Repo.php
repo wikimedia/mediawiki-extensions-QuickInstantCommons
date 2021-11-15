@@ -37,11 +37,17 @@ use WANObjectCache;
  * Example config:
  *
  * $wgForeignFileRepos[] = [
- *   'class'                  => ForeignAPIRepo::class,
- *   'name'                   => 'shared',
- *   'apibase'                => 'https://en.wikipedia.org/w/api.php',
- *   'fetchDescription'       => true, // Optional
- *   'descriptionCacheExpiry' => 3600,
+ *	'class' => 'MediaWiki\Extension\QuickInstantCommons\Repo',
+ *	'name' => 'commonswiki', // Must be a distinct name
+ *	'directory' => $wgUploadDirectory, // FileBackend needs some value here.
+ *	'apibase' => 'https://commons.wikimedia.org/w/api.php',
+ *	'hashLevels' => 2,
+ *	'thumbUrl' => 'https://upload.wikimedia.org/wikipedia/commons/thumb',
+ *	'fetchDescription' => true, // Optional
+ *	'descriptionCacheExpiry' => 43200, // 12 hours, optional (values are seconds)
+ *	'transformVia404' => true, // Whether foreign repo supports 404 transform. Much faster if supported
+ *	'abbrvThreshold' => 160,
+ *	'apiMetadataExpiry' => 60*60*24 // Max time metadata is cached for. Recently changed cached for less
  * ];
  *
  * @ingroup FileRepo

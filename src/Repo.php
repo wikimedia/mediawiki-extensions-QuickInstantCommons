@@ -601,6 +601,7 @@ class Repo extends \FileRepo {
 	 * @param string[] $imgs List of files, no File: prefix
 	 */
 	public function prefetchImgMetadata( array $imgs ) {
+		$this->finalizeCacheIfNeeded();
 		// Clear cache.
 		$this->prefetchCache = [];
 

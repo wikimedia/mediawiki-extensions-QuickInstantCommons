@@ -21,9 +21,10 @@ class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBefor
 	}
 
 	public static function setup() {
-		// FIXME how safe are globals here?
 		global $wgForeignFileRepos, $wgUploadDirectory, $wgUseQuickInstantCommons;
 
+		// For reference, this code is executed after LocalSettings.php but before most of Setup.php
+		// Setup.php will add a filebackend entry to this.
 		if ( $wgUseQuickInstantCommons ) {
 			$wgForeignFileRepos[] = [
 				'class' => 'MediaWiki\Extension\QuickInstantCommons\Repo', // ::class not registered yet.
@@ -56,7 +57,6 @@ class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBefor
 					'method' => __METHOD__
 				]
 			);
-var_dump( "skip" );
 			return;
 		}
 		$limit = $this->config->get( 'QuickInstantCommonsPrefetchMaxLimit' );

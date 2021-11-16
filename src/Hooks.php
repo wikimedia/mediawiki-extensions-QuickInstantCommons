@@ -27,7 +27,7 @@ class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBefor
 		// Setup.php will add a filebackend entry to this.
 		if ( $wgUseQuickInstantCommons ) {
 			$wgForeignFileRepos[] = [
-				'class' => 'MediaWiki\Extension\QuickInstantCommons\Repo', // ::class not registered yet.
+				'class' => Repo::class,
 				'name' => 'commonswiki', // Must be a distinct name
 				'directory' => $wgUploadDirectory, // FileBackend needs some value here.
 				'apibase' => 'https://commons.wikimedia.org/w/api.php',

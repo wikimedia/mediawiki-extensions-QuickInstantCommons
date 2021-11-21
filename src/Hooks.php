@@ -46,7 +46,7 @@ class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBefor
 			return;
 		}
 
-		if ( !$options->getEnableLimitReport() || !$generateHtml ) {
+		if ( !$generateHtml ) {
 			// Skipping. Probably a false positive of some kind
 			$this->logger->warning(
 				"Skipping prefetch on {title} limit report={limitreport}; generate html={generatehtml}",

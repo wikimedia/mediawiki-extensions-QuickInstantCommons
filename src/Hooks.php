@@ -28,7 +28,7 @@ class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBefor
 		if ( $wgUseQuickInstantCommons ) {
 			$wgForeignFileRepos[] = [
 				'class' => Repo::class,
-				'name' => 'commonswiki', // Must be a distinct name
+				'name' => 'wikimediacommons', // "wikimediacommons" triggers builtin i18n.
 				'directory' => $wgUploadDirectory, // FileBackend needs some value here.
 				'apibase' => 'https://commons.wikimedia.org/w/api.php',
 				'hashLevels' => 2,
@@ -89,7 +89,18 @@ class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBefor
 		$file = $imagePage->getDisplayedFile();
 		if ( $file && $file instanceof File ) {
 			if ( !$file->getHandler() && $file->canRender() ) {
-				$output->addWikiMsg( 'quickinstantcommons-missinghandler' );
+				$fileUrl = $file->getDescriptionUrl();
+				// Duplicates $file->getRepo()->getDisplayName(); but with different fallback
+				$repoName = wfMessageFallback(
+					// When using the automatic setup, shared-repo-name-wikimediacommons is used.
+					// Which is built into core.
+					'shared-repo-name-' . $file->getRepo()->getName(),
+					'quickinstantcommons-shared-repo'
+				)->plain();
+				$output->wrapWikiMsg(
+					"<div class='toccolours quickinstantcommons-missinghandler' style='margin-bottom: 4px'>$1</div>",
+					[ 'quickinstantcommons-missinghandler', $fileUrl, $repoName ]
+				);
 			}
 		}
 	}

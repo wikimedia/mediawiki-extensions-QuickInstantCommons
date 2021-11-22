@@ -1,0 +1,8 @@
+{
+	"@metadata": {
+		"authors": []
+	},
+	"quickinstantcommons-desc": "Ermöglicht die Nutzung von Bildern aus Wikimedia Commons in einer leistungsfähigen Weise",
+	"quickinstantcommons-missinghandler": "Die Medienhandler-Erweiterung für dieses Dateiformat fehlt. Erweiterte Medienfunktionen funktionieren möglicherweise nicht, wenn die Datei nicht [$1 im $2] angesehen wurde.",
+	"quickinstantcommons-shared-repo": "gemeinsam genutzten Medienarchiv"
+}

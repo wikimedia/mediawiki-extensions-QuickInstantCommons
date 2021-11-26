@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+			"Gomoko"
+		]
+	},
+	"quickinstantcommons-desc": "Permet d’utiliser les images de Wikimédia Communs d’une manière très performante",
+	"quickinstantcommons-missinghandler": "L’extension de gestion de média pour ce format de fichier manque. Les fonctionnalités de média avancées peuvent ne pas fonctionner à moins que le fichier soit [$1 vu comme $2].",
+	"quickinstantcommons-shared-repo": "le dépôt partagé"
+}

@@ -75,12 +75,13 @@ class MultiHttpClient implements LoggerAwareInterface {
 	protected $userAgent = 'QuickInstantCommons';
 	/** @var LoggerInterface */
 	protected $logger;
-	// Hacky state sharing to make async requests work.
+	/** @var resource[] Hacky state sharing to make async requests work. */
 	private $handles = [];
-	// allegedly reusing curl handlers make things faster. When measuring
-	// it seemed to very roughly be a 2-4% speed improvement.
+	/** @var resource|null allegedly reusing curl handlers make things faster. When measuring
+	 * it seemed to very roughly be a 2-4% speed improvement.
+	 */
 	private $curlHandleCache = null;
-	// state for doin an async request.
+	/** @var array|null state for doin an async request. */
 	private $inFlightState = null;
 
 	/**
@@ -249,7 +250,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 		return $this->inFlightState !== null;
 	}
 
-	private function AssertNotInAsyncRequest() {
+	private function assertNotInAsyncRequest() {
 		if ( $this->inFlightState !== null ) {
 			throw new LogicException( "Async request already in flight" );
 		}

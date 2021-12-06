@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+			"Ostrzyciel"
+		]
+	},
+	"quickinstantcommons-desc": "Pozwala na wydajne wykorzystywanie grafik z Wikimedia Commons",
+	"quickinstantcommons-missinghandler": "Nie znaleziono rozszerzenia obługi mediów dla tego formatu pliku. Zaawansowane funkcjonalności mediów mogą działać dla tego pliku [$1 tylko na $2].",
+	"quickinstantcommons-shared-repo": "współdzielone repozytorium"
+}

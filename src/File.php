@@ -39,6 +39,7 @@ class File extends \File {
 	/** @var array */
 	private $mInfo;
 
+	/** @var string */
 	protected $repoClass = Repo::class;
 
 	/**
@@ -331,6 +332,7 @@ class File extends \File {
 		return null;
 	}
 
+	/** @inheritDoc */
 	public function getUploader( int $audience = self::FOR_PUBLIC, Authority $performer = null ): ?UserIdentity {
 		if ( isset( $this->mInfo['user'] ) ) {
 			// We don't know if the foreign repo will have a real interwiki prefix,
@@ -409,6 +411,7 @@ class File extends \File {
 		return null;
 	}
 
+	/** @inheritDoc */
 	public function purgeCache( $options = [] ) {
 		// @phan-suppress-next-line PhanUndeclaredMethod
 		$this->repo->purgeMetadata( $this->getName() );

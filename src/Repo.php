@@ -62,6 +62,7 @@ class Repo extends \FileRepo {
 		'timestamp',
 	];
 
+	/** @var callable */
 	protected $fileFactory = [ File::class, 'newFromTitle' ];
 
 	/** @var array FIXME: is this even used? */
@@ -523,6 +524,11 @@ class Repo extends \FileRepo {
 		return wfExpandUrl( $url, PROTO_HTTP );
 	}
 
+	/**
+	 * @param string $attribute
+	 * @param string $url
+	 * @return string
+	 */
 	private function turnQueryUrlIntoCacheKey( $attribute, $url ) {
 		// Not clear what the point of attribute here, if the result is
 		// functionally determined by url...
@@ -727,6 +733,9 @@ class Repo extends \FileRepo {
 		}
 	}
 
+	/**
+	 * @param string $imgName
+	 */
 	public function purgeMetadata( $imgName ) {
 		$query = $this->getMetadataQuery( $imgName );
 		$url = $this->turnQueryIntoUrl( $query );
@@ -738,6 +747,10 @@ class Repo extends \FileRepo {
 		$this->finalizeCacheIfNeeded();
 	}
 
+	/**
+	 * @param string $data
+	 * @return int
+	 */
 	public function getMetadataCacheTime( $data ) {
 		$items = FormatJson::decode( $data, true );
 		// If we can't find a timestamp, or we find multiple, don't do adaptive caching.

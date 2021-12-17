@@ -14,6 +14,10 @@ class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBefor
 	/** @var \RepoGroup */
 	private $repoGroup;
 
+	/**
+	 * @param \Config $config
+	 * @param \RepoGroup $repoGroup
+	 */
 	public function __construct( \Config $config, \RepoGroup $repoGroup ) {
 		$this->config = $config;
 		$this->repoGroup = $repoGroup;
@@ -41,6 +45,7 @@ class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBefor
 		}
 	}
 
+	/** @inheritDoc */
 	public function onContentGetParserOutput( $content, $title, $revId, $options, $generateHtml, &$po ) {
 		if ( !$this->config->get( 'QuickInstantCommonsPrefetch' ) ) {
 			return;
@@ -85,6 +90,7 @@ class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBefor
 		}
 	}
 
+	/** @inheritDoc */
 	public function onImageOpenShowImageInlineBefore( $imagePage, $output ) {
 		$file = $imagePage->getDisplayedFile();
 		if ( $file && $file instanceof File ) {

@@ -410,7 +410,7 @@ class File extends \File {
 	 * @return bool|string
 	 */
 	public function getDescriptionUrl() {
-		return $this->mInfo['descriptionurl'] ?? false;
+		return $this->mInfo['descriptionurl'] ?? $this->getRepo()->getDescriptionUrl( $this->getName() );
 	}
 
 	/**
@@ -431,12 +431,9 @@ class File extends \File {
 
 	private function purgeDescriptionPage() {
 		$services = MediaWikiServices::getInstance();
-		$url = $this->repo->getDescriptionRenderUrl(
-			$this->getName(),
-			$services->getContentLanguage()->getCode()
-		);
+		$langCode = $services->getContentLanguage()->getCode();
 
-		$key = $this->repo->getLocalCacheKey( 'file-remote-description', md5( $url ) );
+		$key = $this->repo->getLocalCacheKey( 'file-remote-description', $langCode, md5( $this->getName() ) );
 		$services->getMainWANObjectCache()->delete( $key );
 	}
 
@@ -475,5 +472,77 @@ class File extends \File {
 			$res = str_replace( '##URLBASEPATH##', $baseUrl, $res );
 		}
 		return $res;
+	}
+
+	/**
+	 * Get the HTML text of the description page, if available
+	 * @stable to override
+	 *
+	 * Basically copied from core, except we use getDescriptionRenderUrl
+	 * from File instead of Repo to better support recursive repos like
+	 * en.wikipedia.org
+	 *
+	 * @param \Language|null $lang Optional language to fetch description in
+	 * @return string|false HTML
+	 * @return-taint escaped
+	 */
+	public function getDescriptionText( \Language $lang = null ) {
+		global $wgLang;
+
+		if ( !$this->repo || !$this->repo->fetchDescription ) {
+			return false;
+		}
+
+		$lang = $lang ?? $wgLang;
+
+		$renderUrl = $this->getDescriptionRenderUrl( $lang->getCode() );
+		if ( $renderUrl ) {
+			$cache = MediaWikiServices::getInstance()->getMainWANObjectCache();
+			$key = $this->repo->getLocalCacheKey(
+				'file-remote-description',
+				$lang->getCode(),
+				md5( $this->getName() )
+			);
+			$fname = __METHOD__;
+
+			// FIXME, in future we want to reuse the HTTP connection, and maybe
+			// do adaptive caching based on last mod time.
+			// Also we should return false for 404 instead of showing 404 page.
+			return $cache->getWithSetCallback(
+				$key,
+				$this->repo->descriptionCacheExpiry ?: $cache::TTL_UNCACHEABLE,
+				static function ( $oldValue, &$ttl, array &$setOpts ) use ( $renderUrl, $fname ) {
+					wfDebug( "Fetching shared description from $renderUrl" );
+					$res = MediaWikiServices::getInstance()->getHttpRequestFactory()->
+						get( $renderUrl, [], $fname );
+					if ( !$res ) {
+						$ttl = \WANObjectCache::TTL_UNCACHEABLE;
+					}
+
+					return $res;
+				}
+			);
+		}
+
+		return false;
+	}
+
+	/**
+	 * Override just for getDescriptionUrl()
+	 *
+	 * @param string $lang langcode
+	 * @return string|bool url
+	 */
+	private function getDescriptionRenderUrl( $lang ) {
+		$query = 'action=render';
+		if ( $lang !== null ) {
+			$query .= '&uselang=' . urlencode( $lang );
+		}
+		$descUrl = $this->getDescriptionUrl();
+		if ( $descUrl ) {
+			return wfAppendQuery( $descUrl, $query );
+		} else {
+			return false;
+		}
 	}
 }

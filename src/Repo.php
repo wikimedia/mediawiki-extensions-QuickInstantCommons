@@ -42,7 +42,7 @@ use WANObjectCache;
  *	'directory' => $wgUploadDirectory, // FileBackend needs some value here.
  *	'apibase' => 'https://commons.wikimedia.org/w/api.php',
  *	'hashLevels' => 2,
- *	'thumbUrl' => 'https://upload.wikimedia.org/wikipedia/commons/thumb',
+ *	'thumbUrl' => 'https://upload.wikimedia.org/wikipedia/commons/thumb', // Can be false to auto-detect
  *	'fetchDescription' => true, // Optional
  *	'descriptionCacheExpiry' => 43200, // 12 hours, optional (values are seconds)
  *	'transformVia404' => true, // Whether foreign repo supports 404 transform. Much faster if supported
@@ -408,6 +408,10 @@ class Repo extends \FileRepo {
 	 * @see FileRepo::getZoneUrl()
 	 * @param string $zone
 	 * @param string|null $ext Optional file extension
+	 * @note This extends the interface in an incompatible way to include
+	 *  the string ##URLBASEPATH## as a guess based on the url to full image
+	 *  (From the api response). This is to support recursive repos like enwikipedia,
+	 *  but is quite hacky.
 	 * @return string
 	 */
 	public function getZoneUrl( $zone, $ext = null ) {
@@ -416,7 +420,7 @@ class Repo extends \FileRepo {
 			case 'public':
 				return $this->url;
 			case 'thumb':
-				return $this->thumbUrl;
+				return $this->thumbUrl ?: '##URLBASEPATH##/thumb';
 			default:
 				return parent::getZoneUrl( $zone, $ext );
 		}

@@ -185,7 +185,6 @@ class File extends \File {
 			$thumbUrl = $this->getThumbUrl( $thumbName );
 			$thumb = $this->handler->getTransform( $this, "/dev/null", $thumbUrl, $params );
 		} else {
-			// FIXME also take this path if no handler.
 			$res = $this->repo->getThumbUrlFromCache(
 				$this->getName(),
 				$width,
@@ -448,5 +447,33 @@ class File extends \File {
 	 */
 	public function isTransformedLocally() {
 		return false;
+	}
+
+	/**
+	 * Same as parent except supporting ##URLBASEPATH## for autodetection
+	 *
+	 * In a recursive repo setup, there isn't a single ThumbUrl. For example,
+	 * if using en.wikipedia.org as a foreign repo, the thumb url depends on
+	 * if the image is local or commons. So we support ##URLBASEPATH## as
+	 * the base of the main url to "guess". This is a bit hacky but seems to
+	 * solve the problem without having to make more requests.
+	 *
+	 * @param string|bool $suffix Name of thumbnail file
+	 * @return string
+	 */
+	public function getThumbUrl( $suffix = false ) {
+		$res = parent::getThumbUrl( $suffix );
+		// The following is a bit hacky, but try to autodetect thumb url.
+		// This allows us to support 404 handling on repos like en.wikipedia
+		// that are recursive where some images are local and some are from commons.
+		if ( strpos( $res, '##URLBASEPATH##' ) !== false ) {
+			$count = 0;
+			$baseUrl = preg_replace( '/\/.\/..\/.*$/', '', $this->getUrl(), 1, $count );
+			if ( $count !== 1 ) {
+				throw new \Exception( "Error replacing ##URLBASEPATH##. Try disabling transformVia404" );
+			}
+			$res = str_replace( '##URLBASEPATH##', $baseUrl, $res );
+		}
+		return $res;
 	}
 }

@@ -121,11 +121,23 @@ class File extends \File {
 	}
 
 	/**
+	 * Check if we have a good handler
+	 *
+	 * Built-in TiffHandler hardcodes ForeignAPIRepo. Its also not
+	 * really compatible with PagedTiffHandler. So don't use it
+	 *
+	 * @return bool
+	 */
+	public function hasGoodHandler() {
+		return $this->handler && !$this->handler instanceof \TiffHandler;
+	}
+
+	/**
 	 * Override to allow thumbnailing images without a handler
 	 * @return bool
 	 */
 	public function canRender() {
-		if ( $this->handler ) {
+		if ( $this->hasGoodHandler() ) {
 			return parent::canRender();
 		} else {
 			// Even if we don't have handler, try to render anyways.
@@ -143,7 +155,7 @@ class File extends \File {
 	 * @return bool|\MediaTransformOutput
 	 */
 	public function transform( $params, $flags = 0 ) {
-		if ( $this->handler && !parent::canRender() ) {
+		if ( $this->hasGoodHandler() && !parent::canRender() ) {
 			// show icon
 			return parent::transform( $params, $flags );
 		}
@@ -153,19 +165,19 @@ class File extends \File {
 			throw new \Exception( "RENDER_NOW not supported by QuickInstantCommons" );
 		}
 
-		$otherParams = $this->handler ? $this->handler->makeParamString( $params ) : null;
+		$otherParams = $this->hasGoodHandler() ? $this->handler->makeParamString( $params ) : null;
 		$width = $params['width'] ?? -1;
 		$height = $params['height'] ?? -1;
 
 		$normalisedParams = $params;
-		if ( $this->handler ) {
+		if ( $this->hasGoodHandler() ) {
 			$this->handler->normaliseParams( $this, $normalisedParams );
 		}
 
 		$thumbUrl = false;
 		$thumbWidth = $width;
 		$thumbHeight = $height;
-		if ( $this->repo->canTransformVia404() && $this->handler ) {
+		if ( $this->repo->canTransformVia404() && $this->hasGoodHandler() ) {
 			// XXX: Pass in the storage path even though we are not rendering anything
 			// and the path is supposed to be an FS path. This is due to getScalerType()
 			// getting called on the path and clobbering $thumb->getUrl() if it's false.
@@ -208,7 +220,7 @@ class File extends \File {
 		if ( $thumbHeight !== null ) {
 			$params['height'] = $thumbHeight;
 		}
-		if ( $this->handler ) {
+		if ( $this->hasGoodHandler() ) {
 			return $this->handler->getTransform( $this, 'bogus', $thumbUrl, $params );
 		} else {
 			return new ThumbnailImage( $this, $thumbUrl, false, $params );

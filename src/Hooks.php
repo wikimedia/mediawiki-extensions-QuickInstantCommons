@@ -94,7 +94,7 @@ class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBefor
 	public function onImageOpenShowImageInlineBefore( $imagePage, $output ) {
 		$file = $imagePage->getDisplayedFile();
 		if ( $file && $file instanceof File ) {
-			if ( !$file->getHandler() && $file->canRender() ) {
+			if ( !$file->hasGoodHandler() && $file->canRender() ) {
 				$fileUrl = $file->getDescriptionUrl();
 				// Duplicates $file->getRepo()->getDisplayName(); but with different fallback
 				$repoName = wfMessageFallback(

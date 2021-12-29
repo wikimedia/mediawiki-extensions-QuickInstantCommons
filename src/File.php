@@ -75,12 +75,38 @@ class File extends \File {
 				? count( $data['query']['redirects'] ) - 1
 				: -1;
 			if ( $lastRedirect >= 0 ) {
+				// FIXME what if foreign repo is not english, namespace might not match.
 				// @phan-suppress-next-line PhanTypeArraySuspiciousNullable
 				$newtitle = Title::newFromText( $data['query']['redirects'][$lastRedirect]['to'] );
 				$img = new self( $newtitle, $repo, $info, true );
 				$img->redirectedFrom( $title->getDBkey() );
 			} else {
-				$img = new self( $title, $repo, $info, true );
+				// Recursive foreign repos don't support redirects. Hacky work-around. (T298358)
+				$repoName = $data['query']['pages']['-1']['imagerepository'] ?? 'local';
+				$pageName = '';
+				if ( $repoName !== 'local' ) {
+					$descUrl = $data['query']['pages']['-1']['imageinfo']['0']['descriptionurl'] ?? '';
+					$m = [];
+
+					// Very hacky.
+					if ( preg_match(
+						'/\/[^:]*:([^\/]+)$|index.php\?(?:.*&)?title=[^:]*:([^&]*)(?:&|$)/',
+						$descUrl,
+						$m
+					) ) {
+						$pageName = rawurldecode( $m[1] );
+					}
+				}
+				if ( $pageName !== '' && $pageName !== $title->getDBKey() ) {
+					$newtitle = Title::makeTitleSafe( NS_FILE, $pageName );
+					if ( !$newtitle ) {
+						throw new \Exception( "redirected title invalid" );
+					}
+					$img = new self( $newtitle, $repo, $info, true );
+					$img->redirectedFrom( $title->getDBKey() );
+				} else {
+					$img = new self( $title, $repo, $info, true );
+				}
 			}
 
 			return $img;
@@ -465,8 +491,8 @@ class File extends \File {
 		// that are recursive where some images are local and some are from commons.
 		if ( strpos( $res, '##URLBASEPATH##' ) !== false ) {
 			$count = 0;
-			$baseUrl = preg_replace( '/\/.\/..\/.*$/', '', $this->getUrl(), 1, $count );
-			if ( $count !== 1 ) {
+			$baseUrl = preg_replace( '/\/[a-z0-9]\/[a-z0-9][a-z0-9]\/[^\/]*$/', '', $this->getUrl(), 1, $count );
+			if ( $count !== 1 || $this->repo->getHashLevels() !== 2 ) {
 				throw new \Exception( "Error replacing ##URLBASEPATH##. Try disabling transformVia404" );
 			}
 			$res = str_replace( '##URLBASEPATH##', $baseUrl, $res );

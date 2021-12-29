@@ -48,6 +48,7 @@ use WANObjectCache;
  *	'transformVia404' => true, // Whether foreign repo supports 404 transform. Much faster if supported
  *	'abbrvThreshold' => 160,
  *	'apiMetadataExpiry' => 60*60*24 // Max time metadata is cached for. Recently changed cached for less
+ *	'disabledMediaHandlers' => [ TiffHandler::class ] // MediaHandlers to disable (if they don't match foreign repo)
  * ];
  *
  * @ingroup FileRepo
@@ -80,6 +81,9 @@ class Repo extends \FileRepo {
 	/** @var \Psr\Log\LoggerInterface */
 	private $logger;
 
+	/** @var array List of class names to disable */
+	private $disabledMediaHandlers;
+
 	/**
 	 * @var array
 	 * This is the cache of prefetched images. The cache
@@ -108,9 +112,12 @@ class Repo extends \FileRepo {
 		// https://commons.wikimedia.org/w/api.php
 		$this->mApiBase = $info['apibase'] ?? null;
 		$this->apiMetadataExpiry = $info['apiMetadataExpiry'] ?? \IExpiringStore::TTL_DAY;
+		// TiffHandler commonly causes problems.
+		$this->disabledMediaHandlers = $info['disabledMediaHandlers'] ?? [ \TiffHandler::class ];
 
 		if ( !$this->scriptDirUrl ) {
 			// hack for description fetches
+			// Might not be needed anymore.
 			$this->scriptDirUrl = dirname( $this->mApiBase );
 		}
 		$this->logger = LoggerFactory::getInstance( 'quickinstantcommons' );
@@ -767,5 +774,17 @@ class Repo extends \FileRepo {
 		}
 		// Things that have been modified recently have short cache time.
 		return $this->wanCache->adaptiveTTL( $ts, $this->apiMetadataExpiry, self::NEGATIVE_TTL );
+	}
+
+	/**
+	 * List of media handlers to ignore.
+	 *
+	 * For 404 handling, we need local MediaHandlers to match foreign, so
+	 * disable using any if they don't match.
+	 *
+	 * @return array List of class names
+	 */
+	public function getDisabledMediaHandlers() {
+		return $this->disabledMediaHandlers;
 	}
 }

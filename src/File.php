@@ -152,10 +152,19 @@ class File extends \File {
 	 * Built-in TiffHandler hardcodes ForeignAPIRepo. Its also not
 	 * really compatible with PagedTiffHandler. So don't use it
 	 *
+	 * @suppress PhanUndeclaredMethod
 	 * @return bool
 	 */
 	public function hasGoodHandler() {
-		return $this->handler && !$this->handler instanceof \TiffHandler;
+		$disabled = $this->repo->getDisabledMediaHandlers();
+		if ( $this->handler ) {
+			foreach ( $disabled as $handler ) {
+				if ( $this->handler instanceof $handler ) {
+					return false;
+				}
+			}
+		}
+		return (bool)$this->handler;
 	}
 
 	/**

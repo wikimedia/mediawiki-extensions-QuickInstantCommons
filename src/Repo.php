@@ -506,8 +506,9 @@ class Repo extends \FileRepo {
 	/**
 	 * @param string|array $url Note if multiple, error handling applies to first
 	 * @return array|false
+	 * @private Use only in Repo
 	 */
-	protected function httpGet(
+	public function httpGet(
 		$url
 	) {
 		$urls = (array)$url;

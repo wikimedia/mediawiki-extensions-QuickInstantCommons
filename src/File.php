@@ -595,15 +595,18 @@ class File extends \File {
 			return $cache->getWithSetCallback(
 				$key,
 				$this->repo->descriptionCacheExpiry ?: $cache::TTL_UNCACHEABLE,
-				static function ( $oldValue, &$ttl, array &$setOpts ) use ( $renderUrl, $fname ) {
+				function ( $oldValue, &$ttl, array &$setOpts ) use ( $renderUrl, $fname ) {
 					wfDebug( "Fetching shared description from $renderUrl" );
-					$res = MediaWikiServices::getInstance()->getHttpRequestFactory()->
-						get( $renderUrl, [], $fname );
-					if ( !$res ) {
+					$res = $this->repo->httpGet( $renderUrl );
+					// @phan-suppress-next-line PhanTypeMismatchDimFetch
+					$code = $res[0]['response']['code'] ?? 0;
+					// @phan-suppress-next-line PhanTypeMismatchDimFetch
+					$body = $res[0]['response']['body'] ?? false;
+					if ( !$res || $code != 200 ) {
 						$ttl = \WANObjectCache::TTL_UNCACHEABLE;
 					}
 
-					return $res;
+					return $body;
 				}
 			);
 		}

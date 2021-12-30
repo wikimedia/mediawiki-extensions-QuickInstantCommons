@@ -175,10 +175,11 @@ class File extends \File {
 		if ( $this->hasGoodHandler() ) {
 			return parent::canRender();
 		} else {
-			// Even if we don't have handler, try to render anyways.
-			// FIXME: Is there some way we could know what width we need, so we
-			// don't end up making multiple requests?
-			return $this->transform( [ 'width' => '100' ] ) instanceof ThumbnailImage;
+			// FIXME, if we're always fetching this anyways, should
+			// we check it in the case we do have a handler? It might
+			// be more robust in the case local has a handler that foreign
+			// doesn't.
+			return isset( $this->mInfo['thumburl'] ) && !$this->isIconUrl( $this->mInfo['thumburl'] );
 		}
 	}
 
@@ -238,7 +239,7 @@ class File extends \File {
 			// want to use the fallback thumbs.
 			if (
 				$thumbUrl === false ||
-				( !$this->handler && preg_match( '!assets/file-type-icons/fileicon[^/]*\.png$!', $thumbUrl ) )
+				( !$this->handler && $this->isIconUrl( $thumbUrl ) )
 			) {
 				global $wgLang;
 
@@ -263,6 +264,16 @@ class File extends \File {
 		} else {
 			return new ThumbnailImage( $this, $thumbUrl, false, $params );
 		}
+	}
+
+	/**
+	 * Is the url an icon image instead of a real thumbnail
+	 *
+	 * @param string $url
+	 * @return bool
+	 */
+	private function isIconUrl( $url ) {
+		return (bool)preg_match( '!assets/file-type-icons/fileicon[^/]*\.png$!', $url );
 	}
 
 	/**

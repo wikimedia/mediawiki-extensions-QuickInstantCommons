@@ -696,6 +696,10 @@ class Repo extends \FileRepo {
 			// extmetadata is language-dependent, accessing the current language here
 			// would be problematic, so we just get them all
 			'iiextmetadatamultilang' => 1,
+			// We only need this when we don't have a local handler.
+			// This would be expensive if foreign repo doesn't have 404 handling,
+			// so ideally we'd find a way to only do this when neccessary.
+			'iiurlwidth' => 120,
 		];
 		return $this->normalizeImageQuery( $query );
 	}

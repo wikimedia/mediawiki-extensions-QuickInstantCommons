@@ -243,11 +243,15 @@ class Repo extends \FileRepo {
 	/**
 	 * @param array $query
 	 * @param callable|int $cacheTTL
+	 * @param array $prefetch Additional urls to fetch and cache with same TTL
 	 * @return array|null
 	 */
-	public function fetchImageQuery( $query, $cacheTTL = 3600 ) {
+	public function fetchImageQuery( $query, $cacheTTL = 3600, $prefetch = [] ) {
 		$query = $this->normalizeImageQuery( $query );
-		$data = $this->httpGetCached( 'Metadata', $query, $cacheTTL );
+		foreach ( $prefetch as &$prefetchUrl ) {
+			$prefetchUrl = $this->normalizeImageQuery( $prefetchUrl );
+		}
+		$data = $this->httpGetCached( 'Metadata', $query, $cacheTTL, $prefetch );
 
 		if ( $data ) {
 			return FormatJson::decode( $data, true );
@@ -326,19 +330,35 @@ class Repo extends \FileRepo {
 	 * @param int $height
 	 * @param array|null &$result Output-only parameter, guaranteed to become an array
 	 * @param string $otherParams
+	 * @param array $prefetch Other to prefetch [ [width, height, otherParams ], ... ]
 	 *
 	 * @return array
 	 */
 	private function getThumbUrl(
-		$name, $width = -1, $height = -1, &$result = null, $otherParams = ''
+		$name, $width = -1, $height = -1, &$result = null, $otherParams = '', $prefetch = []
 	) {
-		$data = $this->fetchImageQuery( [
-			'titles' => 'File:' . $name,
-			'iiprop' => self::getIIProps(),
-			'iiurlwidth' => $width,
-			'iiurlheight' => $height,
-			'iiurlparam' => $otherParams,
-			'prop' => 'imageinfo' ], [ $this, 'getMetadataCacheTime' ] );
+		$extraFetch = [];
+		foreach ( $prefetch as $item ) {
+			$extraFetch[] = [
+				'titles' => 'File:' . $name,
+				'iiprop' => self::getIIProps(),
+				'iiurlwidth' => $item[0],
+				'iiurlheight' => $item[1],
+				'iiurlparam' => $item[2],
+				'prop' => 'imageinfo'
+			];
+		}
+		$data = $this->fetchImageQuery(
+			[
+				'titles' => 'File:' . $name,
+				'iiprop' => self::getIIProps(),
+				'iiurlwidth' => $width,
+				'iiurlheight' => $height,
+				'iiurlparam' => $otherParams,
+				'prop' => 'imageinfo' ],
+			[ $this, 'getMetadataCacheTime' ],
+			$extraFetch
+		);
 		$info = $this->getImageInfo( $data );
 
 		if ( $data && $info && isset( $info['thumburl'] ) ) {
@@ -404,11 +424,12 @@ class Repo extends \FileRepo {
 	 * @param int $height
 	 * @param string $params Other rendering parameters (page number, etc)
 	 *   from handler's makeParamString.
+	 * @param array $prefetch Other images to prefetch (Responsive) [ [width, height, otherParams], ... ]
 	 * @return array
 	 */
-	public function getThumbUrlFromCache( $name, $width, $height, $params = "" ) {
+	public function getThumbUrlFromCache( $name, $width, $height, $params = "", $prefetch = [] ) {
 		$result = null; // can't pass "null" by reference, but it's ok as default value
-		return $this->getThumbUrl( $name, $width, $height, $result, $params );
+		return $this->getThumbUrl( $name, $width, $height, $result, $params, $prefetch );
 	}
 
 	/**
@@ -483,21 +504,27 @@ class Repo extends \FileRepo {
 	}
 
 	/**
-	 * @param string $url
-	 * @return string|false
+	 * @param string|array $url Note if multiple, error handling applies to first
+	 * @return array|false
 	 */
 	protected function httpGet(
 		$url
 	) {
-		$arg = [
-			'method' => "GET",
-			'url' => $url
-		];
+		$urls = (array)$url;
+		$arg = [];
+		foreach ( $urls as $url ) {
+			$arg[] = [
+				'method' => "GET",
+				'url' => $url
+			];
+		}
 
-		list( $code, , ,$body, $err ) = $this->httpClient->run( $arg );
+		$res = $this->httpClient->runMulti( $arg );
+		$firstRes = $res[0]['response'];
+		list( $code, , ,$body, $err ) = $firstRes;
 
 		if ( $code == 200 ) {
-			return $body;
+			return $res;
 		} else {
 			$this->logger->warning(
 				'HTTP request to {url} failed {status} - {err}',
@@ -551,32 +578,83 @@ class Repo extends \FileRepo {
 	 * @param string $attribute Used in cache key creation, mostly
 	 * @param array $query The query parameters for the API request
 	 * @param int|callable $cacheTTL Time to live for the memcached caching or func.
+	 * @param array $prefetch Additional urls to prefetch.
 	 * @return string|null
 	 */
-	public function httpGetCached( $attribute, $query, $cacheTTL = 3600 ) {
+	public function httpGetCached( $attribute, $query, $cacheTTL = 3600, $prefetch = [] ) {
 		$this->finalizeCacheIfNeeded();
-		$url = $this->turnQueryIntoUrl( $query );
-		$key = $this->turnQueryUrlIntoCacheKey( $attribute, $url );
-		if ( isset( $this->prefetchCache[$key] ) ) {
+
+		// Item 0 is the primary one.
+		$urls = [];
+		$keys = [];
+		$urls[] = $this->turnQueryIntoUrl( $query );
+		$keys[] = $this->turnQueryUrlIntoCacheKey( $attribute, $urls[0] );
+		foreach ( $prefetch as $extraFetch ) {
+			$extraUrl = $this->turnQueryIntoUrl( $extraFetch );
+			$extraKey = $this->turnQueryUrlIntoCacheKey( $attribute, $extraUrl );
+			if ( !isset( $this->prefetchCache[$extraKey] ) ) {
+				// We only prefetch these on a cache miss for the main item.
+				// This is primarily meant to get responsive urls
+				$urls[] = $extraUrl;
+				$keys[] = $extraKey;
+			}
+		}
+		if ( isset( $this->prefetchCache[$keys[0]] ) ) {
 			$this->logger->debug( "Got {key} [{url}] from prefetch cache",
 				[
-					'key' => $key,
-					'url' => $url
+					'key' => $keys[0],
+					'url' => $urls[0]
 				] );
-			return $this->prefetchCache[$key];
+			return $this->prefetchCache[$keys[0]];
 		}
 
 		$defaultTTL = is_callable( $cacheTTL ) ? 3600 : $cacheTTL;
 
 		return $this->wanCache->getWithSetCallback(
-			$key,
+			$keys[0],
 			$defaultTTL,
-			function ( $curValue, &$ttl ) use ( $url, $cacheTTL ) {
-				$html = $this->httpGet( $url );
+			function ( $curValue, &$ttl ) use ( $urls, $keys, $cacheTTL, $defaultTTL ) {
+				global $wgQuickInstantCommonsPrefetchMaxLimit;
+				$res = $this->httpGet( $urls );
+				$html = $res && $res[0]['response']['code'] == 200 ? $res[0]['response']['body'] : false;
 				if ( $html !== false ) {
 					if ( is_callable( $cacheTTL ) ) {
 						$ttl = $cacheTTL( $html );
-						$this->logger->debug( "Setting cache ttl for $url = $ttl" );
+						$this->logger->debug(
+							"Setting cache ttl for {url} = {ttl}",
+							[ 'url' => $urls[0], 'ttl' => $ttl ]
+						);
+					}
+					for ( $i = 1; $i < count( $res ); $i++ ) {
+						$preHtml = $res[$i]['response']['body'] ?? false;
+						$preCode = $res[$i]['response']['code'] ?? 0;
+						if ( $preCode != 200 || !is_string( $preHtml ) ) {
+							$this->logger->debug(
+								"Bad result for prefetch {url} - {key}. Skipping",
+								[ 'url' => $urls[$i], 'key' => $keys[$i] ]
+							);
+							continue;
+						}
+						$newTTL = is_callable( $cacheTTL ) ? $cacheTTL( $preHtml ) : $defaultTTL;
+						$this->logger->debug(
+							"Setting cache ttl for prefetch {url} = {ttl}",
+							[ 'url' => $urls[$i], 'ttl' => $newTTL ]
+						);
+						$this->wanCache->set(
+							$keys[$i],
+							$preHtml,
+							$newTTL
+						);
+						// Have a limit to prevent memory leak, but
+						// want it hight then general limit so we still
+						// cache stuff for pages hitting the other limit
+						if (
+							count( $this->prefetchCache ) <=
+							$wgQuickInstantCommonsPrefetchMaxLimit * 3
+						) {
+							$this->prefetchCache[$keys[$i]] = $preHtml;
+						}
+
 					}
 				} else {
 					$ttl = self::NEGATIVE_TTL;

@@ -187,6 +187,7 @@ class File extends \File {
 	 * @param array $params
 	 * @param int $flags
 	 * @suppress PhanTypeMismatchDimFetch
+	 * @suppress PhanParamTooMany
 	 * @return bool|\MediaTransformOutput
 	 */
 	public function transform( $params, $flags = 0 ) {
@@ -203,6 +204,7 @@ class File extends \File {
 		$otherParams = $this->hasGoodHandler() ? $this->handler->makeParamString( $params ) : null;
 		$width = $params['width'] ?? -1;
 		$height = $params['height'] ?? -1;
+		$combinedParams = (array)$otherParams + [ 'width' => $width, 'height' => $height ];
 
 		$normalisedParams = $params;
 		if ( $this->hasGoodHandler() ) {
@@ -220,11 +222,13 @@ class File extends \File {
 			$thumbUrl = $this->getThumbUrl( $thumbName );
 			$thumb = $this->handler->getTransform( $this, "/dev/null", $thumbUrl, $params );
 		} else {
+			// Our repo extends the base class with an extra argument.
 			$res = $this->repo->getThumbUrlFromCache(
 				$this->getName(),
 				$width,
 				$height,
-				$otherParams
+				$otherParams,
+				$this->getResponsiveParams( $combinedParams )
 			);
 			$thumbUrl = $res['url'];
 			$thumbWidth = $res['width'];
@@ -259,6 +263,40 @@ class File extends \File {
 		} else {
 			return new ThumbnailImage( $this, $thumbUrl, false, $params );
 		}
+	}
+
+	/**
+	 * Figure out what urls to pre-fetch for responsive images
+	 *
+	 * @note Keep in sync in Linker::processResponsiveImages
+	 * @param array $hp Image params.
+	 * @return array
+	 */
+	private function getResponsiveParams( $hp ) {
+		global $wgResponsiveImages;
+		if ( !$wgResponsiveImages ) {
+			return [];
+		}
+		$hp15 = $hp;
+		$hp15['width'] = round( $hp['width'] * 1.5 );
+		$hp20 = $hp;
+		$hp20['width'] = $hp['width'] * 2;
+		if ( isset( $hp['height'] ) && $hp['height'] !== -1 ) {
+			$hp15['height'] = round( $hp['height'] * 1.5 );
+			$hp20['height'] = $hp['height'] * 2;
+		}
+
+		$otherParams15 = $this->hasGoodHandler() ? $this->handler->makeParamString( $hp15 ) : null;
+		$width15 = $hp15['width'] ?? -1;
+		$height15 = $hp15['height'] ?? -1;
+
+		$otherParams20 = $this->hasGoodHandler() ? $this->handler->makeParamString( $hp20 ) : null;
+		$width20 = $hp20['width'] ?? -1;
+		$height20 = $hp20['height'] ?? -1;
+		return [
+			[ $width15, $height15, $otherParams15 ],
+			[ $width20, $height20, $otherParams20 ],
+		];
 	}
 
 	// Info we can get from API...

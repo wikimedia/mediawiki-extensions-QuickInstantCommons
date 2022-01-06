@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+			"Daud I.F. Argana"
+		]
+	},
+	"quickinstantcommons-desc": "Memungkinkan menggunakan gambar dari Wikimedia Commons dengan performa yang tinggi",
+	"quickinstantcommons-missinghandler": "Ekstensi penanganan media untuk format berkas ini tidak ditemukan. Fitur media lanjutan kemungkinan tidak bekerja kecuali berkasnya [$1 dilihat di $2].",
+	"quickinstantcommons-shared-repo": "repositori bersama"
+}

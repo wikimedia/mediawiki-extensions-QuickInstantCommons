@@ -633,6 +633,11 @@ class MultiHttpClient implements LoggerAwareInterface {
 	}
 
 	public function __destruct() {
+		if ( $this->inAsyncRequest() ) {
+			// This shouldn't really happen, but too late now
+			$this->inFlightState = null;
+			$this->logger->warning( "Destroying MultiHttpClient while async request pending" );
+		}
 		if ( $this->cmh ) {
 			curl_multi_close( $this->cmh );
 		}

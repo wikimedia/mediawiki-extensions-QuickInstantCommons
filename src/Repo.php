@@ -511,6 +511,9 @@ class Repo extends \FileRepo {
 	public function httpGet(
 		$url
 	) {
+		// Normally we run this in httpGetCached, but getDescriptionPage
+		// skips that, so we check this in both places.
+		$this->finalizeCacheIfNeeded();
 		$urls = (array)$url;
 		$arg = [];
 		foreach ( $urls as $url ) {

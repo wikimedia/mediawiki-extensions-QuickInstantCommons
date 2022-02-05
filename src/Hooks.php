@@ -27,6 +27,10 @@ class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBefor
 	public static function setup() {
 		global $wgForeignFileRepos, $wgUploadDirectory, $wgUseQuickInstantCommons;
 
+		if ( !interface_exists( '\ForeignRepoWithMWApi' ) ) {
+			// Compatibility with MW < 1.38.
+			require __DIR__ . '/../stubs/ForeignRepoWithMWApi.php';
+		}
 		// For reference, this code is executed after LocalSettings.php but before most of Setup.php
 		// Setup.php will add a filebackend entry to this.
 		if ( $wgUseQuickInstantCommons ) {

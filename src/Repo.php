@@ -53,7 +53,7 @@ use WANObjectCache;
  *
  * @ingroup FileRepo
  */
-class Repo extends \FileRepo {
+class Repo extends \FileRepo implements \ForeignRepoWithMWApi {
 
 	/**
 	 * List of iiprop values for the thumbnail fetch queries.

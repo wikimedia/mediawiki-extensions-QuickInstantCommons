@@ -6,7 +6,7 @@
  *
  * This file should not be loaded if we are on MW 1.38+.
  */
-interface ForeignRepoWithMWApi {
+interface IForeignRepoWithMWApi {
 	/**
 	 * Make an API query in the foreign repo, caching results
 	 *

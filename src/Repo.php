@@ -25,6 +25,7 @@ namespace MediaWiki\Extension\QuickInstantCommons;
 use FormatJson;
 use MediaWiki\Linker\LinkTarget;
 use MediaWiki\Logger\LoggerFactory;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\PageIdentity;
 use MWException;
 use RequestContext;
@@ -729,10 +730,20 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 			$key = $this->turnQueryUrlIntoCacheKey( 'Metadata', $url );
 			$filesToCacheKey[$key] = $img;
 			$filesToCacheUrl[$img] = [ $url, $key ];
+
+			if ( $this->isTMHFile( $img ) ) {
+				list( $viUrl, $viKey ) = $this->getVideoInfoUrlAndKey( $img );
+				$filesToCacheKey[$viKey] = $img . '#videoinfo';
+				$filesToCacheUrl[$img . '#videoinfo'] = [ $viUrl, $viKey ];
+
+				list( $ttUrl, $ttKey ) = $this->getTimedTextUrlAndKey( $img );
+				$filesToCacheKey[$ttKey] = $img . '#timedtext';
+				$filesToCacheUrl[$img . '#timedtext'] = [ $ttUrl, $ttKey ];
+			}
 		}
 
 		$this->logger->debug(
-			"Async prefetching {count} images via wancache",
+			"Async prefetching {count} urls via wancache",
 			[ 'count' => count( $filesToCacheKey ) ]
 		);
 		// todo We could use second curTTL argument to probabilistically refresh.
@@ -781,7 +792,7 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 			];
 		}
 
-		$this->logger->debug( "Async prefetching {count} images via HTTP", [ 'count' => count( $reqs ) ] );
+		$this->logger->debug( "Async prefetching {count} urls via HTTP", [ 'count' => count( $reqs ) ] );
 		$this->httpClient->runMultiAsync( $reqs );
 	}
 
@@ -872,5 +883,77 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 	 */
 	public function getDisabledMediaHandlers() {
 		return $this->disabledMediaHandlers;
+	}
+
+	/**
+	 * Determine if an image is likely handled by TimedMediaHandler
+	 *
+	 * @param string $imgName Name of image (Not a file object)
+	 * @return bool
+	 */
+	private function isTMHFile( string $imgName ) {
+		if ( !\ExtensionRegistry::getInstance()->isLoaded( 'TimedMediaHandler' ) ) {
+			return false;
+		}
+		$n = strrpos( $imgName, '.' );
+		$ext = \File::normalizeExtension( $n ? substr( $imgName, $n + 1 ) : '' );
+		$magic = MediaWikiServices::getInstance()->getMimeAnalyzer();
+		$mime = $magic->getMimeTypeFromExtensionOrNull( $ext );
+		if ( !$mime ) {
+			return false;
+		}
+		return \MediaHandler::getHandler( $mime ) instanceof \TimedMediaHandler;
+	}
+
+	/**
+	 * Get url and cache key for videoinfo derivatives api request for TMH
+	 *
+	 * @param string $imgName Name of media file (Not a file object)
+	 * @return array url and key
+	 */
+	private function getVideoInfoUrlAndKey( string $imgName ) {
+		// Keep in sync with WebVideoTranscode::getRemoteSources
+		// For some reason TMH does not use DBKey for derivatives
+		$imgName = str_replace( '_', ' ', $imgName );
+		$namespaceInfo = MediaWikiServices::getInstance()->getNamespaceInfo();
+		// Note: Order of this array matters!
+		$query = [
+			'action' => 'query',
+			'prop' => 'videoinfo',
+			'viprop' => 'derivatives',
+			'titles' => $namespaceInfo->getCanonicalName( NS_FILE ) . ':' . $imgName
+		];
+
+		$query = $this->normalizeImageQuery( $query );
+		$url = $this->turnQueryIntoUrl( $query );
+		$key = $this->turnQueryUrlIntoCacheKey( 'Metadata', $url );
+		return [ $url, $key ];
+	}
+
+	/**
+	 * Get url and cache key for videoinfo TimedText api request for TMH
+	 *
+	 * @note This only fetches what TT tracks exist. If any exist, they
+	 *  get fetched on client side as needed.
+	 * @param string $imgName Name of media file (Not a file object)
+	 * @return array url and key
+	 */
+	private function getTimedTextUrlAndKey( string $imgName ) {
+		// Keep in sync with WebVideoTranscode::getRemoteSources
+		// Unlike with derivatives, TMH uses _ not spaces here.
+		$namespaceInfo = MediaWikiServices::getInstance()->getNamespaceInfo();
+		// Order of this array matters!
+		$query = [
+			'action' => 'query',
+			'titles' => $namespaceInfo->getCanonicalName( NS_FILE ) . ':' . $imgName,
+			'prop' => 'videoinfo',
+			'viprop' => 'timedtext',
+			'formatversion' => '2',
+		];
+
+		$query = $this->normalizeImageQuery( $query );
+		$url = $this->turnQueryIntoUrl( $query );
+		$key = $this->turnQueryUrlIntoCacheKey( 'Metadata', $url );
+		return [ $url, $key ];
 	}
 }

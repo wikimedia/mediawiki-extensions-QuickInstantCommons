@@ -116,11 +116,20 @@ class MultiHttpClient implements LoggerAwareInterface {
 			'connTimeout', 'maxConnTimeout', 'reqTimeout', 'maxReqTimeout',
 			'usePipelining', 'maxConnsPerHost', 'proxy', 'userAgent', 'logger'
 		];
+
 		foreach ( $opts as $key ) {
 			if ( isset( $options[$key] ) ) {
 				$this->$key = $options[$key];
 			}
 		}
+
+		if ( $this->connTimeout > $this->maxConnTimeout ) {
+			$this->connTimeout = $this->maxConnTimeout;
+		}
+		if ( $this->reqTimeout > $this->maxReqTimeout ) {
+			$this->reqTimeout = $this->maxReqTimeout;
+		}
+
 		if ( $this->logger === null ) {
 			$this->logger = new NullLogger;
 		}
@@ -140,15 +149,10 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 * 		list( $rcode, $rdesc, $rhdrs, $rbody, $rerr ) = $http->run( $req );
 	 * @endcode
 	 * @param array $req HTTP request array
-	 * @param array $opts
-	 *   - connTimeout     : connection timeout per request (seconds)
-	 *   - reqTimeout      : post-connection timeout per request (seconds)
-	 *   - usePipelining   : whether to use HTTP pipelining if possible (for all hosts)
-	 *   - maxConnsPerHost : maximum number of concurrent connections (per host)
 	 * @return array Response array for request
 	 */
-	public function run( array $req, array $opts = [] ) {
-		return $this->runMulti( [ $req ], $opts )[0]['response'];
+	public function run( array $req ) {
+		return $this->runMulti( [ $req ] )[0]['response'];
 	}
 
 	/**
@@ -172,29 +176,16 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 * method/URL entries will also be changed to use the corresponding string keys.
 	 *
 	 * @param array[] $reqs Map of HTTP request arrays
-	 * @param array $opts Options
-	 *   - connTimeout     : connection timeout per request (seconds)
-	 *   - reqTimeout      : post-connection timeout per request (seconds)
-	 *   - usePipelining   : whether to use HTTP pipelining if possible (for all hosts)
-	 *   - maxConnsPerHost : maximum number of concurrent connections (per host)
 	 * @return array[] $reqs With response array populated for each
 	 * @throws Exception
 	 */
-	public function runMulti( array $reqs, array $opts = [] ) {
+	public function runMulti( array $reqs ) {
 		$this->assertNotInAsyncRequest();
 		$this->normalizeRequests( $reqs );
-		$opts += [ 'connTimeout' => $this->connTimeout, 'reqTimeout' => $this->reqTimeout ];
-
-		if ( $opts['connTimeout'] > $this->maxConnTimeout ) {
-			$opts['connTimeout'] = $this->maxConnTimeout;
-		}
-		if ( $opts['reqTimeout'] > $this->maxReqTimeout ) {
-			$opts['reqTimeout'] = $this->maxReqTimeout;
-		}
 
 		if ( $this->isCurlEnabled() ) {
-			$this->runMultiCurl( $reqs, $opts );
-			return $this->runMultiCurlFinish( $reqs, $opts );
+			$this->runMultiCurl( $reqs );
+			return $this->runMultiCurlFinish( $reqs );
 		} else {
 			throw new Exception( "Curl php extension needs to be installed" );
 		}
@@ -209,23 +200,14 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 * runMulti until after you have called finishMultiAsync.
 	 *
 	 * @param array $reqs List of requests, containing method and url
-	 * @param array $opts List of opts
 	 */
-	public function runMultiAsync( array $reqs, array $opts = [] ) {
+	public function runMultiAsync( array $reqs ) {
 		$this->assertNotInAsyncRequest();
 		$this->normalizeRequests( $reqs );
-		$opts += [ 'connTimeout' => $this->connTimeout, 'reqTimeout' => $this->reqTimeout ];
-
-		if ( $opts['connTimeout'] > $this->maxConnTimeout ) {
-			$opts['connTimeout'] = $this->maxConnTimeout;
-		}
-		if ( $opts['reqTimeout'] > $this->maxReqTimeout ) {
-			$opts['reqTimeout'] = $this->maxReqTimeout;
-		}
 
 		if ( $this->isCurlEnabled() ) {
-			$this->runMultiCurl( $reqs, $opts );
-			$this->inFlightState = [ $reqs, $opts ];
+			$this->runMultiCurl( $reqs );
+			$this->inFlightState = $reqs;
 		} else {
 			throw new Exception( "Curl php extension needs to be installed" );
 		}
@@ -240,8 +222,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 			throw new LogicException( "Not in an async request!" );
 		}
 
-		// @phan-suppress-next-line PhanTypeArraySuspiciousNullable
-		$res = $this->runMultiCurlFinish( $this->inFlightState[0], $this->inFlightState[1] );
+		$res = $this->runMultiCurlFinish( $this->inFlightState );
 		$this->inFlightState = null;
 		return $res;
 	}
@@ -273,16 +254,10 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 * @see MultiHttpClient::runMulti()
 	 *
 	 * @param array[] &$reqs Map of HTTP request arrays
-	 * @param array $opts
-	 *   - connTimeout     : connection timeout per request (seconds)
-	 *   - reqTimeout      : post-connection timeout per request (seconds)
-	 *   - usePipelining   : whether to use HTTP pipelining if possible
-	 *   - maxConnsPerHost : maximum number of concurrent connections (per host)
-	 * @phan-param array{connTimeout?:int,reqTimeout?:int,usePipelining?:bool,maxConnsPerHost?:int} $opts
 	 * @throws Exception
 	 */
-	private function runMultiCurl( array &$reqs, array $opts ) {
-		$chm = $this->getCurlMulti( $opts );
+	private function runMultiCurl( array &$reqs ) {
+		$chm = $this->getCurlMulti();
 
 		// Add all of the required cURL handles...
 		if ( count( $this->handles ) !== 0 ) {
@@ -290,7 +265,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 		}
 		foreach ( $reqs as $index => &$req ) {
 			// Note: getCurlHandle modifies $req!!
-			$this->handles[$index] = $this->getCurlHandle( $req, $opts );
+			$this->handles[$index] = $this->getCurlHandle( $req );
 			curl_multi_add_handle( $chm, $this->handles[$index] );
 		}
 		// unset( $req ); // don't assign over this by accident
@@ -305,12 +280,11 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 * Complete all the queued up requests
 	 *
 	 * @param array &$reqs
-	 * @param array $opts
 	 * @return array List of requests and their results
 	 * @suppress PhanTypeInvalidDimOffset
 	 */
-	private function runMultiCurlFinish( array &$reqs, array $opts ) {
-		$selectTimeout = $this->getSelectTimeout( $opts );
+	private function runMultiCurlFinish( array &$reqs ) {
+		$selectTimeout = $this->getSelectTimeout();
 		$infos = [];
 		// Execute the cURL handles concurrently...
 		$active = null; // handles still being processed
@@ -404,14 +378,11 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 * @param array &$req HTTP request map
 	 * @phpcs:ignore Generic.Files.LineLength
 	 * @phan-param array{url:string,proxy?:?string,query:mixed,method:string,body:string|resource,headers:string[],stream?:resource,flags:array} $req
-	 * @param array $opts
-	 *   - connTimeout : default connection timeout
-	 *   - reqTimeout : default request timeout
 	 * @suppress PhanTypePossiblyInvalidDimOffset
 	 * @return resource
 	 * @throws Exception
 	 */
-	protected function getCurlHandle( array &$req, array $opts ) {
+	protected function getCurlHandle( array &$req ) {
 		// TODO: I did a test of reusing curl handles. On a long page, that caused time
 		// to go from 139 seconds -> 135. On a medium page it went 19.0 -> 18.1 seconds.
 		// For simplicity, only cache a single handler
@@ -420,21 +391,21 @@ class MultiHttpClient implements LoggerAwareInterface {
 			$this->curlHandleCache = null;
 		} else {
 			$ch = curl_init();
+			// Prefer to use HTTP/2 multiplexing over multiple connections.
+			curl_setopt( $ch, CURLOPT_PIPEWAIT, 1 );
+			curl_setopt( $ch, CURLOPT_PROXY, $req['proxy'] ?? $this->proxy );
+			curl_setopt( $ch, CURLOPT_CONNECTTIMEOUT_MS, intval( $this->connTimeout * 1e3 ) );
+			curl_setopt( $ch, CURLOPT_TIMEOUT_MS, intval( $this->reqTimeout * 1e3 ) );
+			curl_setopt( $ch, CURLOPT_FOLLOWLOCATION, 1 );
+			curl_setopt( $ch, CURLOPT_MAXREDIRS, 4 );
+			curl_setopt( $ch, CURLOPT_HEADER, 0 );
+			if ( $this->caBundlePath !== null ) {
+				curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, true );
+				curl_setopt( $ch, CURLOPT_CAINFO, $this->caBundlePath );
+			}
+			curl_setopt( $ch, CURLOPT_RETURNTRANSFER, 1 );
+			curl_setopt( $ch, CURLOPT_CUSTOMREQUEST, 'GET' );
 		}
-
-		// Prefer to use HTTP/2 multiplexing over multiple connections.
-		curl_setopt( $ch, CURLOPT_PIPEWAIT, 1 );
-		curl_setopt( $ch, CURLOPT_PROXY, $req['proxy'] ?? $this->proxy );
-		curl_setopt( $ch, CURLOPT_CONNECTTIMEOUT_MS, intval( $opts['connTimeout'] * 1e3 ) );
-		curl_setopt( $ch, CURLOPT_TIMEOUT_MS, intval( $opts['reqTimeout'] * 1e3 ) );
-		curl_setopt( $ch, CURLOPT_FOLLOWLOCATION, 1 );
-		curl_setopt( $ch, CURLOPT_MAXREDIRS, 4 );
-		curl_setopt( $ch, CURLOPT_HEADER, 0 );
-		if ( $this->caBundlePath !== null ) {
-			curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, true );
-			curl_setopt( $ch, CURLOPT_CAINFO, $this->caBundlePath );
-		}
-		curl_setopt( $ch, CURLOPT_RETURNTRANSFER, 1 );
 
 		$url = $req['url'];
 		$query = http_build_query( $req['query'], '', '&', PHP_QUERY_RFC3986 );
@@ -442,7 +413,6 @@ class MultiHttpClient implements LoggerAwareInterface {
 			$url .= strpos( $req['url'], '?' ) === false ? "?$query" : "&$query";
 		}
 		curl_setopt( $ch, CURLOPT_URL, $url );
-		curl_setopt( $ch, CURLOPT_CUSTOMREQUEST, $req['method'] );
 
 		if ( $req['method'] !== 'GET' ) {
 			throw new Exception( "Only GET supported" );
@@ -507,11 +477,10 @@ class MultiHttpClient implements LoggerAwareInterface {
 	}
 
 	/**
-	 * @param array $opts
 	 * @return resource
 	 * @throws Exception
 	 */
-	protected function getCurlMulti( array $opts ) {
+	protected function getCurlMulti() {
 		// Note, this is access directly by other methods!
 		if ( !$this->cmh ) {
 			$cmh = curl_multi_init();
@@ -519,18 +488,15 @@ class MultiHttpClient implements LoggerAwareInterface {
 			// request batches to the same host can avoid having to keep making connections
 			curl_multi_setopt( $cmh, CURLMOPT_MAXCONNECTS, (int)$this->maxConnsPerHost );
 			$this->cmh = $cmh;
-		}
 
-		// CURLMOPT_MAX_HOST_CONNECTIONS is available since PHP 7.0.7 and cURL 7.30.0
-		if ( version_compare( curl_version()['version'], '7.30.0', '>=' ) ) {
-			// Limit the number of in-flight requests for any given host
-			$maxHostConns = $opts['maxConnsPerHost'] ?? $this->maxConnsPerHost;
-			curl_multi_setopt( $this->cmh, CURLMOPT_MAX_HOST_CONNECTIONS, (int)$maxHostConns );
+			// CURLMOPT_MAX_HOST_CONNECTIONS is available since PHP 7.0.7 and cURL 7.30.0
+			if ( version_compare( curl_version()['version'], '7.30.0', '>=' ) ) {
+				// Limit the number of in-flight requests for any given host
+				$maxHostConns = $this->maxConnsPerHost;
+				curl_multi_setopt( $this->cmh, CURLMOPT_MAX_HOST_CONNECTIONS, $this->maxConnsPerHost );
+			}
+			curl_multi_setopt( $this->cmh, CURLMOPT_PIPELINING, $this->usePipelining ? CURLPIPE_MULTIPLEX : 0 );
 		}
-
-		// Configure when to multiplex multiple requests onto single TCP handles
-		$pipelining = $opts['usePipelining'] ?? $this->usePipelining;
-		curl_multi_setopt( $this->cmh, CURLMOPT_PIPELINING, $pipelining ? CURLPIPE_MULTIPLEX : 0 );
 
 		return $this->cmh;
 	}
@@ -604,12 +570,11 @@ class MultiHttpClient implements LoggerAwareInterface {
 	/**
 	 * Get a suitable select timeout for the given options.
 	 *
-	 * @param array $opts
 	 * @return float
 	 */
-	private function getSelectTimeout( $opts ) {
-		$connTimeout = $opts['connTimeout'] ?? $this->connTimeout;
-		$reqTimeout = $opts['reqTimeout'] ?? $this->reqTimeout;
+	private function getSelectTimeout() {
+		$connTimeout = $this->connTimeout;
+		$reqTimeout = $this->reqTimeout;
 		$timeouts = array_filter( [ $connTimeout, $reqTimeout ] );
 		if ( count( $timeouts ) === 0 ) {
 			return 1;

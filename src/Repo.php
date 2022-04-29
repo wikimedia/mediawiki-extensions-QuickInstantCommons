@@ -703,7 +703,7 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 			'iiextmetadatamultilang' => 1,
 			// We only need this when we don't have a local handler.
 			// This would be expensive if foreign repo doesn't have 404 handling,
-			// so ideally we'd find a way to only do this when neccessary.
+			// so ideally we'd find a way to only do this when necessary.
 			'iiurlwidth' => 120,
 		];
 		return $this->normalizeImageQuery( $query );

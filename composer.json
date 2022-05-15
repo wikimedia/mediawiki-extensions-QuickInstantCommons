@@ -1,5 +1,5 @@
 {
-	"name": "mediawiki/quickisntantcommons",
+	"name": "mediawiki/quickinstantcommons",
 	"type": "mediawiki-extension",
 	"description": "Performance optimized version of MediaWiki's instant commons feature",
 	"license": "GPL-2.0-or-later",

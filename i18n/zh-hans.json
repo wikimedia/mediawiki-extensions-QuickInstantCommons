@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+			"Lakejason0"
+		]
+	},
+	"quickinstantcommons-desc": "提升使用来自维基共享资源的图像时的性能",
+	"quickinstantcommons-missinghandler": "缺少适用于此文件格式的媒体处理器扩展。额外的媒体功能可能无法工作，如果需要这些功能，可以[$1 在$2浏览]。",
+	"quickinstantcommons-shared-repo": "共享文件库"
+}

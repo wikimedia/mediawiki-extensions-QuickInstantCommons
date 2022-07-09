@@ -31,8 +31,6 @@ class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBefor
 			// Compatibility with MW < 1.38.
 			require __DIR__ . '/../stubs/IForeignRepoWithMWApi.php';
 		}
-		// For reference, this code is executed after LocalSettings.php but before most of Setup.php
-		// Setup.php will add a filebackend entry to this.
 		if ( $wgUseQuickInstantCommons ) {
 			$wgForeignFileRepos[] = [
 				'class' => Repo::class,
@@ -45,6 +43,8 @@ class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBefor
 				'descriptionCacheExpiry' => 43200, // 12 hours, optional (values are seconds)
 				'transformVia404' => true,
 				'abbrvThreshold' => 160,
+				// Normally set by SetupDynamicConfig.php.
+				'backend' => 'wikimediacommons-backend'
 			];
 		}
 	}

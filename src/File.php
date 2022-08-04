@@ -22,11 +22,11 @@
 namespace MediaWiki\Extension\QuickInstantCommons;
 
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Permissions\Authority;
 use MediaWiki\User\UserIdentity;
 use MediaWiki\User\UserIdentityValue;
 use ThumbnailImage;
 use Title;
+use User;
 
 /**
  * Foreign file accessible through api.php requests.
@@ -428,7 +428,7 @@ class File extends \File {
 	}
 
 	/** @inheritDoc */
-	public function getUploader( int $audience = self::FOR_PUBLIC, Authority $performer = null ): ?UserIdentity {
+	public function getUploader( int $audience = self::FOR_PUBLIC, User $performer = null ): ?UserIdentity {
 		if ( isset( $this->mInfo['user'] ) ) {
 			// We don't know if the foreign repo will have a real interwiki prefix,
 			// treat this user as a foreign imported user. Maybe we can do better?
@@ -439,10 +439,10 @@ class File extends \File {
 
 	/**
 	 * @param int $audience
-	 * @param Authority|null $performer
+	 * @param User|null $performer
 	 * @return null|string
 	 */
-	public function getDescription( $audience = self::FOR_PUBLIC, Authority $performer = null ) {
+	public function getDescription( $audience = self::FOR_PUBLIC, User $performer = null ) {
 		return isset( $this->mInfo['comment'] ) ? strval( $this->mInfo['comment'] ) : null;
 	}
 

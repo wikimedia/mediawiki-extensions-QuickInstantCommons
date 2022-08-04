@@ -7,7 +7,7 @@
 	"url": "https://www.mediawiki.org/wiki/Extension:QuickInstantCommons",
 	"descriptionmsg": "quickinstantcommons-desc",
 	"requires": {
-		"MediaWiki": ">= 1.35",
+		"MediaWiki": ">= 1.36",
 		"platform": {
 			"ext-curl": "*",
 			"php": ">= 7.2.11"

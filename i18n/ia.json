@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+			"McDutchie"
+		]
+	},
+	"quickinstantcommons-desc": "Permitte usar imagines de Wikimedia Commons con un alte rendimento",
+	"quickinstantcommons-missinghandler": "Le extension de gestion multimedial pro iste formato de file manca. Le functiones multimedial avantiate pote non functionar a minus que le file es [$1 visualisate a $2].",
+	"quickinstantcommons-shared-repo": "le repositorio condividite"
+}

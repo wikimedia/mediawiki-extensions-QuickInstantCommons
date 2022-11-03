@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+			"Meno25"
+		]
+	},
+	"quickinstantcommons-desc": "يسمح باستخدام الصور من ويكيميديا كومنز بطريقة عالية الأداء",
+	"quickinstantcommons-missinghandler": "ملحق معالج الوسائط لتنسيق الملف هذا مفقود. قد لا تعمل ميزات الوسائط المتقدمة ما لم يتم عرض الملف [ $1 عند $2 ].",
+	"quickinstantcommons-shared-repo": "المستودع المشترك"
+}

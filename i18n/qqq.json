@@ -1,9 +1,10 @@
 {
 	"@metadata": {
 		"authors": [
-			"Cantons-de-l'Est"
+			"Cantons-de-l'Est",
+			"Umherirrender"
 		]
 	},
-	"quickinstantcommons-desc": "Permet d'utiliser les images de Wikimedia Commons dans un environnement très rapide",
+	"quickinstantcommons-desc": "{{desc|name=QuickInstantCommons|url=https://www.mediawiki.org/wiki/Extension:QuickInstantCommons}}",
 	"quickinstantcommons-shared-repo": "l'entrepôt partagé"
 }

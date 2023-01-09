@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+			"Vlad5250"
+		]
+	},
+	"quickinstantcommons-desc": "Omogućuje korištenje slika s Ostave na način visokih performansi",
+	"quickinstantcommons-missinghandler": "Nedostaje proširenje rukovatelja medijima za ovaj format datoteke. Možda neće raditi napredne medijske značajke osim ako je datoteka [$1 pogledana na $2].",
+	"quickinstantcommons-shared-repo": "zajedničkom repozitoriju"
+}

@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+			"Eleassar"
+		]
+	},
+	"quickinstantcommons-desc": "Omogoča uporabo slik iz Wikimedijine zbirke na visokozmogljiv način",
+	"quickinstantcommons-missinghandler": "Pripona obravnalnika predstavnosti za ta datotečni format manjka. Napredne predstavnostne možnosti morda ne bodo delovale, razen če si boste datoteko [$1 ogledali na $2].",
+	"quickinstantcommons-shared-repo": "skupna shramba"
+}

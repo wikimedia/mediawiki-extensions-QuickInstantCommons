@@ -4,6 +4,7 @@
 	},
 	"quickinstantcommons-desc": "Allows using images from Wikimedia Commons in a high performance way",
 	"quickinstantcommons-missinghandler": "The media handler extension for this file format is missing. Advanced media features may not work unless the file is [$1 viewed at $2].",
-	"quickinstantcommons-shared-repo": "the shared repository"
+	"quickinstantcommons-shared-repo": "the shared repository",
+	"apihelp-query+filerepoinfo-paramvalue-prop-descriptionCacheExpiry": "The time in seconds after which the description cache will expire. Default is 43200 (12 hour)."
 }
 

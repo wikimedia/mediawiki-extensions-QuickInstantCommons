@@ -31,6 +31,7 @@ use MWException;
 use RequestContext;
 use Title;
 use WANObjectCache;
+use Wikimedia\LightweightObjectStore\ExpirationAwareness;
 
 /**
  * A foreign repository for a remote MediaWiki accessible through api.php requests supporting 404 handling.
@@ -112,7 +113,7 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 
 		// https://commons.wikimedia.org/w/api.php
 		$this->mApiBase = $info['apibase'] ?? null;
-		$this->apiMetadataExpiry = $info['apiMetadataExpiry'] ?? \IExpiringStore::TTL_DAY;
+		$this->apiMetadataExpiry = $info['apiMetadataExpiry'] ?? ExpirationAwareness::TTL_DAY;
 		// TiffHandler commonly causes problems.
 		$this->disabledMediaHandlers = $info['disabledMediaHandlers'] ?? [ \TiffHandler::class ];
 
@@ -487,7 +488,7 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 			'siprop' => 'general',
 		];
 
-		$data = $this->httpGetCached( 'SiteInfo', $query, \IExpiringStore::TTL_MONTH );
+		$data = $this->httpGetCached( 'SiteInfo', $query, ExpirationAwareness::TTL_MONTH );
 
 		if ( $data ) {
 			$siteInfo = FormatJson::decode( $data, true );

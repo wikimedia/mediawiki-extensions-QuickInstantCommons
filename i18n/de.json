@@ -4,5 +4,6 @@
 	},
 	"quickinstantcommons-desc": "Ermöglicht die Nutzung von Bildern aus Wikimedia Commons in einer leistungsfähigen Weise",
 	"quickinstantcommons-missinghandler": "Die Medienhandler-Erweiterung für dieses Dateiformat fehlt. Erweiterte Medienfunktionen funktionieren möglicherweise nicht, wenn die Datei nicht [$1 im $2] angesehen wurde.",
-	"quickinstantcommons-shared-repo": "gemeinsam genutzten Medienarchiv"
+	"quickinstantcommons-shared-repo": "gemeinsam genutzten Medienarchiv",
+	"apihelp-query+filerepoinfo-paramvalue-prop-descriptionCacheExpiry": "Die Zeit in Sekunden, nach der der Beschreibungscache abläuft. Standardwert ist 43200 (12 Stunden)."
 }

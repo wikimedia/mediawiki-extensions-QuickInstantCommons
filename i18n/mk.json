@@ -6,5 +6,6 @@
 	},
 	"quickinstantcommons-desc": "Овозможува употреба на слики од Ризницата на високоизведбен начин",
 	"quickinstantcommons-missinghandler": "Додатокот за ракување со податотеки од овој формат недостасува. Може да не работат напредните можности освен ако податотеката не се [$1 гледа на $2].",
-	"quickinstantcommons-shared-repo": "заедничко складиште"
+	"quickinstantcommons-shared-repo": "заедничко складиште",
+	"apihelp-query+filerepoinfo-paramvalue-prop-descriptionCacheExpiry": "По колку секунди истекува описниот меѓусклад. По основно: 43200 (12 часа)."
 }

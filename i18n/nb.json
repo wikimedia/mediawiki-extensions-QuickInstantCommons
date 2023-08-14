@@ -1,0 +1,8 @@
+{
+	"@metadata": {
+		"authors": [
+			"Event"
+		]
+	},
+	"apihelp-query+filerepoinfo-paramvalue-prop-descriptionCacheExpiry": "Tiden i sekunder før beskrivelsescachen utløper. Standard er 43200 (12 timer)."
+}

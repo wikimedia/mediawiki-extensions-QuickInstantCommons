@@ -1,10 +1,13 @@
 {
 	"@metadata": {
 		"authors": [
+			"Amire80",
 			"Cantons-de-l'Est",
 			"Umherirrender"
 		]
 	},
 	"quickinstantcommons-desc": "{{desc|name=QuickInstantCommons|url=https://www.mediawiki.org/wiki/Extension:QuickInstantCommons}}",
-	"apihelp-query+filerepoinfo-paramvalue-prop-descriptionCacheExpiry": "The expiry time of the cached description, in seconds"
+	"quickinstantcommons-missinghandler": "An error message. $2 is the repository name: \"Wikimedia Commons\" in a default setup, a different name, or the generic message {{msg-mw|Quickinstantcommons-shared-repo}}.",
+	"quickinstantcommons-shared-repo": "A generic name shown in {{msg-mw|Quickinstantcommons-missinghandler}} if nothing else is defined.",
+	"apihelp-query+filerepoinfo-paramvalue-prop-descriptionCacheExpiry": "{{doc-apihelp-paramvalue|query+filerepoinfo|prop|descriptionCacheExpiry}}\nThe expiry time of the cached description, in seconds."
 }

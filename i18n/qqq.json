@@ -2,9 +2,11 @@
 	"@metadata": {
 		"authors": [
 			"Cantons-de-l'Est",
-			"Umherirrender"
+			"Umherirrender",
+			"Amire80"
 		]
 	},
 	"quickinstantcommons-desc": "{{desc|name=QuickInstantCommons|url=https://www.mediawiki.org/wiki/Extension:QuickInstantCommons}}",
-	"quickinstantcommons-shared-repo": "l'entrepôt partagé"
+	"quickinstantcommons-missinghandler": "An error message. $2 is the repository name: \"Wikimedia Commons\" in a default setup, a different name, or the generic message {{msg-mw|Quickinstantcommons-shared-repo}}.",
+	"quickinstantcommons-shared-repo": "A generic name shown in {{msg-mw|Quickinstantcommons-missinghandler}} if nothing else is defined."
 }

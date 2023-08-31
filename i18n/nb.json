@@ -1,0 +1,11 @@
+{
+	"@metadata": {
+		"authors": [
+			"Event",
+			"Jon Harald Søby"
+		]
+	},
+	"quickinstantcommons-desc": "Gjør det mulig å bruke bilder fra Wikimedia Commons med god ytelse",
+	"quickinstantcommons-missinghandler": "Mediehåndteringsutvidelsen for dette filformatet mangler. Avanserte mediefunksjoner vil kanskje ikke virke med mindre fila [$1 vises på $2].",
+	"quickinstantcommons-shared-repo": "det delte fillageret"
+}

@@ -1,10 +1,12 @@
 {
 	"@metadata": {
 		"authors": [
+			"Kly",
 			"Lakejason0"
 		]
 	},
 	"quickinstantcommons-desc": "提升使用來自維基共享資源的圖片時的效能",
 	"quickinstantcommons-missinghandler": "缺少用於此檔案格式的擴充功能。更多媒體功能可能無法工作，若需要這些功能，可以[$1 在$2檢視]。",
-	"quickinstantcommons-shared-repo": "共用檔案庫"
+	"quickinstantcommons-shared-repo": "共用檔案庫",
+	"apihelp-query+filerepoinfo-paramvalue-prop-descriptionCacheExpiry": "描述快取過期的時間（以秒為單位）。預設為 43200（12 個小時）。"
 }

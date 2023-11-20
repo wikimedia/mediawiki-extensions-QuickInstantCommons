@@ -6,5 +6,6 @@
 	},
 	"quickinstantcommons-desc": "Möjliggör användning av bilder från Wikimedia Commons på ett högpresterande sätt",
 	"quickinstantcommons-missinghandler": "Mediehanteringstillägget för detta filformat saknas. Avancerade mediefunktioner kanske inte fungerar om inte filen [$1 visas i $2].",
-	"quickinstantcommons-shared-repo": "det gemensamma arkivet"
+	"quickinstantcommons-shared-repo": "det gemensamma arkivet",
+	"apihelp-query+filerepoinfo-paramvalue-prop-descriptionCacheExpiry": "Tiden i sekunder efter vilket beskrivningscachen upphör. Standarden är 43200 (12 timmar)."
 }

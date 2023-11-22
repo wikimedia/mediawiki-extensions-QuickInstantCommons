@@ -1,0 +1,11 @@
+{
+	"@metadata": {
+		"authors": [
+			"McDutchie"
+		]
+	},
+	"quickinstantcommons-desc": "Maakt het mogelijk afbeeldingen van Wikimedia Commons op een efficiënte manier te gebruiken",
+	"quickinstantcommons-missinghandler": "Voor dit bestandsformaat ontbreekt de uitbreiding voor media-afhandeling. Geavanceerde mediafuncties werken mogelijk niet, tenzij u het bestand [$1 op $2 bekijkt].",
+	"quickinstantcommons-shared-repo": "de gedeelde opslagplaats",
+	"apihelp-query+filerepoinfo-paramvalue-prop-descriptionCacheExpiry": "De tijd in seconden waarna de beschrijvingscache verloopt. De standaardwaarde is 43200 (12 uur)."
+}

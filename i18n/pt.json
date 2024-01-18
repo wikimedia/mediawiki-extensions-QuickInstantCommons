@@ -6,5 +6,6 @@
 	},
 	"quickinstantcommons-desc": "Permite utilizar imagens da wiki Wikimedia Commons em modo de alto desempenho",
 	"quickinstantcommons-missinghandler": "A extensão para tratar multimédia neste formato de ficheiro está em falta. As funcionalidades avançadas de multimédia podem não funcionar, a menos que o ficheiro seja [$1 visionado $2].",
-	"quickinstantcommons-shared-repo": "no repositório compartilhado"
+	"quickinstantcommons-shared-repo": "no repositório compartilhado",
+	"apihelp-query+filerepoinfo-paramvalue-prop-descriptionCacheExpiry": "O tempo em segundos após o qual a ''cache'' de descrições expira. Por omissão é 43200 (12 horas)."
 }

@@ -10,7 +10,7 @@
 		"MediaWiki": ">= 1.42",
 		"platform": {
 			"ext-curl": "*",
-			"php": ">= 7.2.11"
+			"php": ">= 7.4.3"
 		}
 	},
 	"license-name": "GPL-2.0-or-later",

@@ -545,7 +545,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 					'url' => $req['url'],
 				]
 			);
-			$req['query'] = $req['query'] ?? [];
+			$req['query'] ??= [];
 			$headers = []; // normalized headers
 			if ( isset( $req['headers'] ) ) {
 				foreach ( $req['headers'] as $name => $value ) {
@@ -557,7 +557,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 				$req['body'] = '';
 				$req['headers']['content-length'] = 0;
 			}
-			$req['flags'] = $req['flags'] ?? [];
+			$req['flags'] ??= [];
 		}
 	}
 

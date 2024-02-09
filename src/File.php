@@ -578,7 +578,7 @@ class File extends \File {
 			return false;
 		}
 
-		$lang = $lang ?? $wgLang;
+		$lang ??= $wgLang;
 
 		$renderUrl = $this->getDescriptionRenderUrl( $lang->getCode() );
 		if ( $renderUrl ) {

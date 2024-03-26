@@ -4,9 +4,11 @@ namespace MediaWiki\Extension\QuickInstantCommons;
 use MediaWiki\Content\Hook\ContentGetParserOutputHook;
 use MediaWiki\logger\LoggerFactory;
 use MediaWiki\Page\Hook\ImageOpenShowImageInlineBeforeHook;
+use Wikimedia\Rdbms\IConnectionProvider;
 
 class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBeforeHook {
 
+	private IConnectionProvider $dbProvider;
 	/** @var \Config */
 	private $config;
 	/** @var \Psr\Log\LoggerInterface */
@@ -14,11 +16,8 @@ class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBefor
 	/** @var \RepoGroup */
 	private $repoGroup;
 
-	/**
-	 * @param \Config $config
-	 * @param \RepoGroup $repoGroup
-	 */
-	public function __construct( \Config $config, \RepoGroup $repoGroup ) {
+	public function __construct( IConnectionProvider $dbProvider, \Config $config, \RepoGroup $repoGroup ) {
+		$this->dbProvider = $dbProvider;
 		$this->config = $config;
 		$this->repoGroup = $repoGroup;
 		$this->logger = LoggerFactory::getInstance( 'quickinstantcommons' );
@@ -27,10 +26,6 @@ class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBefor
 	public static function setup() {
 		global $wgForeignFileRepos, $wgUploadDirectory, $wgUseQuickInstantCommons;
 
-		if ( !interface_exists( '\IForeignRepoWithMWApi' ) ) {
-			// Compatibility with MW < 1.38.
-			require __DIR__ . '/../stubs/IForeignRepoWithMWApi.php';
-		}
 		if ( $wgUseQuickInstantCommons ) {
 			$wgForeignFileRepos[] = [
 				'class' => Repo::class,
@@ -69,7 +64,7 @@ class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBefor
 			return;
 		}
 		$limit = $this->config->get( 'QuickInstantCommonsPrefetchMaxLimit' );
-		$dbr = wfGetDB( DB_REPLICA );
+		$dbr = $this->dbProvider->getReplicaDatabase();
 
 		// Get all images previously used in this article that aren't local.
 		$res = $dbr->selectFieldValues(

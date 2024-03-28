@@ -22,7 +22,6 @@
  */
 namespace MediaWiki\Extension\QuickInstantCommons;
 
-use Exception;
 use LogicException;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
@@ -100,7 +99,6 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 *   - userAgent       : The User-Agent header value to send
 	 *   - logger          : a \Psr\Log\LoggerInterface instance for debug logging
 	 *   - caBundlePath    : path to specific Certificate Authority bundle (if any)
-	 * @throws Exception
 	 */
 	public function __construct( array $options ) {
 		global $wgSitename;
@@ -109,7 +107,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 		if ( isset( $options['caBundlePath'] ) ) {
 			$this->caBundlePath = $options['caBundlePath'];
 			if ( !file_exists( $this->caBundlePath ) ) {
-				throw new Exception( "Cannot find CA bundle: " . $this->caBundlePath );
+				throw new LogicException( "Cannot find CA bundle: " . $this->caBundlePath );
 			}
 		}
 		static $opts = [
@@ -177,7 +175,6 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 *
 	 * @param array[] $reqs Map of HTTP request arrays
 	 * @return array[] $reqs With response array populated for each
-	 * @throws Exception
 	 */
 	public function runMulti( array $reqs ) {
 		$this->assertNotInAsyncRequest();
@@ -187,7 +184,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 			$this->runMultiCurl( $reqs );
 			return $this->runMultiCurlFinish( $reqs );
 		} else {
-			throw new Exception( "Curl php extension needs to be installed" );
+			throw new LogicException( "Curl php extension needs to be installed" );
 		}
 	}
 
@@ -209,7 +206,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 			$this->runMultiCurl( $reqs );
 			$this->inFlightState = $reqs;
 		} else {
-			throw new Exception( "Curl php extension needs to be installed" );
+			throw new LogicException( "Curl php extension needs to be installed" );
 		}
 	}
 
@@ -254,14 +251,13 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 * @see MultiHttpClient::runMulti()
 	 *
 	 * @param array[] &$reqs Map of HTTP request arrays
-	 * @throws Exception
 	 */
 	private function runMultiCurl( array &$reqs ) {
 		$chm = $this->getCurlMulti();
 
 		// Add all of the required cURL handles...
 		if ( count( $this->handles ) !== 0 ) {
-			throw new Exception( "Async req in progress" );
+			throw new LogicException( "Async req in progress" );
 		}
 		foreach ( $reqs as $index => &$req ) {
 			// Note: getCurlHandle modifies $req!!
@@ -380,7 +376,6 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 * @phan-param array{url:string,proxy?:?string,query:mixed,method:string,body:string|resource,headers:string[],stream?:resource,flags:array} $req
 	 * @suppress PhanTypePossiblyInvalidDimOffset
 	 * @return resource
-	 * @throws Exception
 	 */
 	protected function getCurlHandle( array &$req ) {
 		// TODO: I did a test of reusing curl handles. On a long page, that caused time
@@ -415,10 +410,10 @@ class MultiHttpClient implements LoggerAwareInterface {
 		curl_setopt( $ch, CURLOPT_URL, $url );
 
 		if ( $req['method'] !== 'GET' ) {
-			throw new Exception( "Only GET supported" );
+			throw new LogicException( "Only GET supported" );
 		}
 		if ( is_resource( $req['body'] ) || $req['body'] !== '' ) {
-			throw new Exception( "HTTP body specified for a non PUT/POST request." );
+			throw new LogicException( "HTTP body specified for a non PUT/POST request." );
 		}
 
 		if ( !isset( $req['headers']['user-agent'] ) ) {
@@ -428,7 +423,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 		$headers = [];
 		foreach ( $req['headers'] as $name => $value ) {
 			if ( strpos( $name, ': ' ) ) {
-				throw new Exception( "Headers cannot have ':' in the name." );
+				throw new LogicException( "Headers cannot have ':' in the name." );
 			}
 			$headers[] = $name . ': ' . trim( $value );
 		}
@@ -478,7 +473,6 @@ class MultiHttpClient implements LoggerAwareInterface {
 
 	/**
 	 * @return resource
-	 * @throws Exception
 	 */
 	protected function getCurlMulti() {
 		// Note, this is access directly by other methods!
@@ -541,9 +535,9 @@ class MultiHttpClient implements LoggerAwareInterface {
 				unset( $req[1] );
 			}
 			if ( !isset( $req['method'] ) ) {
-				throw new Exception( "Request has no 'method' field set." );
+				throw new LogicException( "Request has no 'method' field set." );
 			} elseif ( !isset( $req['url'] ) ) {
-				throw new Exception( "Request has no 'url' field set." );
+				throw new LogicException( "Request has no 'url' field set." );
 			}
 			$this->logger->debug( "HTTP start: {method} {url}",
 				[

@@ -25,6 +25,7 @@ use MediaWiki\MediaWikiServices;
 use MediaWiki\Permissions\Authority;
 use MediaWiki\User\UserIdentity;
 use MediaWiki\User\UserIdentityValue;
+use RuntimeException;
 use ThumbnailImage;
 use Title;
 
@@ -100,7 +101,7 @@ class File extends \File {
 				if ( $pageName !== '' && $pageName !== $title->getDBKey() ) {
 					$newtitle = Title::makeTitleSafe( NS_FILE, $pageName );
 					if ( !$newtitle ) {
-						throw new \Exception( "redirected title invalid" );
+						throw new RuntimeException( "redirected title invalid" );
 					}
 					$img = new self( $newtitle, $repo, $info, true );
 					$img->redirectedFrom( $title->getDBKey() );
@@ -199,7 +200,7 @@ class File extends \File {
 
 		if ( $flags & self::RENDER_NOW ) {
 			// what would this even mean?
-			throw new \Exception( "RENDER_NOW not supported by QuickInstantCommons" );
+			throw new RuntimeException( "RENDER_NOW not supported by QuickInstantCommons" );
 		}
 
 		$otherParams = $this->hasGoodHandler() ? $this->handler->makeParamString( $params ) : null;
@@ -551,7 +552,7 @@ class File extends \File {
 			$count = 0;
 			$baseUrl = preg_replace( '/\/[a-z0-9]\/[a-z0-9][a-z0-9]\/[^\/]*$/', '', $this->getUrl(), 1, $count );
 			if ( $count !== 1 || $this->repo->getHashLevels() !== 2 ) {
-				throw new \Exception( "Error replacing ##URLBASEPATH##. Try disabling transformVia404" );
+				throw new RuntimeException( "Error replacing ##URLBASEPATH##. Try disabling transformVia404" );
 			}
 			$res = str_replace( '##URLBASEPATH##', $baseUrl, $res );
 		}

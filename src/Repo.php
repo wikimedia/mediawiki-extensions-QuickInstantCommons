@@ -23,11 +23,11 @@
 namespace MediaWiki\Extension\QuickInstantCommons;
 
 use FormatJson;
+use LogicException;
 use MediaWiki\Linker\LinkTarget;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\PageIdentity;
-use MWException;
 use RequestContext;
 use Title;
 use WANObjectCache;
@@ -675,19 +675,15 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 
 	/**
 	 * @param callable $callback
-	 * @throws MWException
 	 */
 	public function enumFiles( $callback ) {
 		// @phan-suppress-previous-line PhanPluginNeverReturnMethod
-		throw new MWException( 'enumFiles is not supported by ' . static::class );
+		throw new LogicException( 'enumFiles is not supported by ' . static::class );
 	}
 
-	/**
-	 * @throws MWException
-	 */
 	protected function assertWritableRepo() {
 		// @phan-suppress-previous-line PhanPluginNeverReturnMethod
-		throw new MWException( static::class . ': write operations are not supported.' );
+		throw new LogicException( static::class . ': write operations are not supported.' );
 	}
 
 	/**
@@ -811,7 +807,7 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 			$key = $res['_key'];
 
 			if ( !$imgName || !$key ) {
-				throw new \LogicException( "Missing imgname/key" );
+				throw new LogicException( "Missing imgname/key" );
 			}
 
 			if ( $code == 200 ) {

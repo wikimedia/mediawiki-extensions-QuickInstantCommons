@@ -527,7 +527,7 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 
 		$res = $this->httpClient->runMulti( $arg );
 		$firstRes = $res[0]['response'];
-		list( $code, , ,$body, $err ) = $firstRes;
+		[ $code, , , $body, $err ] = $firstRes;
 
 		if ( $code == 200 ) {
 			return $res;
@@ -730,11 +730,11 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 			$filesToCacheUrl[$img] = [ $url, $key ];
 
 			if ( $this->isTMHFile( $img ) ) {
-				list( $viUrl, $viKey ) = $this->getVideoInfoUrlAndKey( $img );
+				[ $viUrl, $viKey ] = $this->getVideoInfoUrlAndKey( $img );
 				$filesToCacheKey[$viKey] = $img . '#videoinfo';
 				$filesToCacheUrl[$img . '#videoinfo'] = [ $viUrl, $viKey ];
 
-				list( $ttUrl, $ttKey ) = $this->getTimedTextUrlAndKey( $img );
+				[ $ttUrl, $ttKey ] = $this->getTimedTextUrlAndKey( $img );
 				$filesToCacheKey[$ttKey] = $img . '#timedtext';
 				$filesToCacheUrl[$img . '#timedtext'] = [ $ttUrl, $ttKey ];
 			}
@@ -757,11 +757,11 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 			if ( $decision ) {
 				// Based on WanObjectCache::worthRefreshExpiring
 				if ( $decision ) {
-				$this->logger->debug( "preemptively refreshing {file} [{key}] during prefetch. ttl={ttl}", [
+					$this->logger->debug( "preemptively refreshing {file} [{key}] during prefetch. ttl={ttl}", [
 					'file' => $imgName,
 					'key' => $key,
 					'ttl' => $ttls[$key]
-				] );
+					] );
 				}
 
 			} else {
@@ -781,7 +781,7 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 
 		$reqs = [];
 		foreach ( $filesToCacheUrl as $imgName => $info ) {
-			list( $url, $key ) = $info;
+			[ $url, $key ] = $info;
 			$reqs[] = [
 				'method' => 'GET',
 				'url' => $url,
@@ -802,7 +802,7 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 		$results = $this->httpClient->finishMultiAsync();
 		$this->logger->debug( "Got http prefetch for {count} files", [ 'count' => count( $results ) ] );
 		foreach ( $results as $res ) {
-			list( $code, , ,$body, $err ) = $res['response'];
+			[ $code, , , $body, $err ] = $res['response'];
 			$imgName = $res['_imgName'];
 			$key = $res['_key'];
 

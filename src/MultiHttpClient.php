@@ -447,7 +447,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 				if ( strpos( $header, ":" ) === false ) {
 					return $length;
 				}
-				list( $name, $value ) = explode( ":", $header, 2 );
+				[ $name, $value ] = explode( ":", $header, 2 );
 				$name = strtolower( $name );
 				$value = trim( $value );
 				if ( isset( $req['response']['headers'][$name] ) ) {

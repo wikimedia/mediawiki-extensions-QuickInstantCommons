@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+			"Waki285"
+		]
+	},
+	"quickinstantcommons-desc": "ウィキメディア・コモンズの画像の取得を高速化する",
+	"quickinstantcommons-missinghandler": "このファイル形式のメディアハンドラー拡張機能がありません。ファイルが[$1 $2に表示 ]されない限り、高度なメディア機能は動作しない可能性があります。",
+	"quickinstantcommons-shared-repo": "共有リポジトリ"
+}

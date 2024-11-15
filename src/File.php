@@ -429,7 +429,7 @@ class File extends \File {
 	}
 
 	/** @inheritDoc */
-	public function getUploader( int $audience = self::FOR_PUBLIC, Authority $performer = null ): ?UserIdentity {
+	public function getUploader( int $audience = self::FOR_PUBLIC, ?Authority $performer = null ): ?UserIdentity {
 		if ( isset( $this->mInfo['user'] ) ) {
 			// We don't know if the foreign repo will have a real interwiki prefix,
 			// treat this user as a foreign imported user. Maybe we can do better?
@@ -443,7 +443,7 @@ class File extends \File {
 	 * @param Authority|null $performer
 	 * @return null|string
 	 */
-	public function getDescription( $audience = self::FOR_PUBLIC, Authority $performer = null ) {
+	public function getDescription( $audience = self::FOR_PUBLIC, ?Authority $performer = null ) {
 		return isset( $this->mInfo['comment'] ) ? strval( $this->mInfo['comment'] ) : null;
 	}
 
@@ -571,7 +571,7 @@ class File extends \File {
 	 * @return string|false HTML
 	 * @return-taint escaped
 	 */
-	public function getDescriptionText( \Language $lang = null ) {
+	public function getDescriptionText( ?\Language $lang = null ) {
 		global $wgLang;
 
 		if ( !$this->repo || !$this->repo->fetchDescription ) {

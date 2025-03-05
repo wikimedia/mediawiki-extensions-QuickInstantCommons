@@ -23,11 +23,11 @@ namespace MediaWiki\Extension\QuickInstantCommons;
 
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Permissions\Authority;
+use MediaWiki\Title\Title;
 use MediaWiki\User\UserIdentity;
 use MediaWiki\User\UserIdentityValue;
 use RuntimeException;
 use ThumbnailImage;
-use Title;
 
 /**
  * Foreign file accessible through api.php requests.

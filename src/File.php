@@ -70,11 +70,13 @@ class File extends \File {
 		);
 
 		$info = $repo->getImageInfo( $data );
+		$img = null;
 
 		if ( $info ) {
 			$lastRedirect = isset( $data['query']['redirects'] )
 				? count( $data['query']['redirects'] ) - 1
 				: -1;
+
 			if ( $lastRedirect >= 0 ) {
 				// FIXME what if foreign repo is not english, namespace might not match.
 				// @phan-suppress-next-line PhanTypeArraySuspiciousNullable
@@ -85,6 +87,8 @@ class File extends \File {
 				// Recursive foreign repos don't support redirects. Hacky work-around. (T298358)
 				$repoName = $data['query']['pages']['-1']['imagerepository'] ?? 'local';
 				$pageName = '';
+				$normalizedTitle = $data['query']['normalized'][0]['to'] ?? '';
+
 				if ( $repoName !== 'local' ) {
 					$descUrl = $data['query']['pages']['-1']['imageinfo']['0']['descriptionurl'] ?? '';
 					$m = [];
@@ -98,6 +102,7 @@ class File extends \File {
 						$pageName = rawurldecode( $m[1] );
 					}
 				}
+
 				if ( $pageName !== '' && $pageName !== $title->getDBKey() ) {
 					$newtitle = Title::makeTitleSafe( NS_FILE, $pageName );
 					if ( !$newtitle ) {
@@ -105,7 +110,23 @@ class File extends \File {
 					}
 					$img = new self( $newtitle, $repo, $info, true );
 					$img->redirectedFrom( $title->getDBKey() );
-				} else {
+				}
+				if ( $normalizedTitle ) {
+					// The page title was normalized in some way. Use the API-provided
+					// title as the filename to avoid linking issues when $wgCapitalLinks
+					// is enabled for the local wiki but not on the foreign repo. (T391750)
+					$newtitle = Title::newFromText( $normalizedTitle );
+					if ( !$newtitle ) {
+						throw new RuntimeException( "normalized title invalid" );
+					} elseif ( !$newtitle->equals( $title ) ) {
+						// Only use the normalized title if it is different from the original
+						// title.
+						$img = new self( $newtitle, $repo, $info, true );
+						$img->redirectedFrom( $title->getDBKey() );
+					}
+				}
+
+				if ( !$img ) {
 					$img = new self( $title, $repo, $info, true );
 				}
 			}

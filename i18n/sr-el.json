@@ -2,7 +2,7 @@
 	"@metadata": {
 		"authors": []
 	},
-	"quickinstantcommons-desc": "Omogućava korišćenje slika s Vikimedijine Ostave na način visokih perfomansi",
-	"quickinstantcommons-missinghandler": "Nedostaje dodatak za upravljanje medijumom za ovaj format datoteke. Napredne mogućnosti za medije neće raditi sve dok datoteka nije [$1 pogledana na $2].",
+	"quickinstantcommons-desc": "Omogućava korišćenje slika s Vikimedijine ostave na način visokih perfomansi",
+	"quickinstantcommons-missinghandler": "Nedostaje dodatak za upravljanje ovim formatom datoteke. Napredne multimedijalne mogućnosti neće raditi sve dok datoteka nije [$1 pogledana na $2].",
 	"quickinstantcommons-shared-repo": "zajedničko skladište"
 }

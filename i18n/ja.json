@@ -1,11 +1,12 @@
 {
 	"@metadata": {
 		"authors": [
-			"Waki285"
+			"Waki285",
+			"Shirayuki"
 		]
 	},
 	"quickinstantcommons-desc": "ウィキメディア・コモンズの画像の取得を高速化する",
 	"quickinstantcommons-missinghandler": "このファイル形式のメディアハンドラー拡張機能がありません。ファイルが[$1 $2に表示 ]されない限り、高度なメディア機能は動作しない可能性があります。",
 	"quickinstantcommons-shared-repo": "共有リポジトリ",
-	"apihelp-query+filerepoinfo-paramvalue-prop-descriptionCacheExpiry": "説明キャッシュの有効期限が切れるまでの時間 (秒数)。デフォルトは 43200 (12 時間) です。"
+	"apihelp-query+filerepoinfo-paramvalue-prop-descriptionCacheExpiry": "説明キャッシュの有効期限が切れるまでの時間 (秒数)。既定値は 43200 (12時間) です。"
 }

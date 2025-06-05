@@ -101,7 +101,8 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 *   - caBundlePath    : path to specific Certificate Authority bundle (if any)
 	 */
 	public function __construct( array $options ) {
-		global $wgSitename;
+		global $wgHTTPProxy, $wgSitename;
+		$this->proxy = $wgHTTPProxy;
 		$qicVersion = \ExtensionRegistry::getInstance()->getAllThings()['QuickInstantCommons']['version'];
 		$this->userAgent = 'QuickInstantCommons/' . $qicVersion . ' MediaWiki/' . MW_VERSION . '; ' . $wgSitename;
 		if ( isset( $options['caBundlePath'] ) ) {

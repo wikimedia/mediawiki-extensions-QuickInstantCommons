@@ -609,7 +609,6 @@ class File extends \File {
 				$lang->getCode(),
 				md5( $this->getName() )
 			);
-			$fname = __METHOD__;
 
 			// FIXME, in future we want to reuse the HTTP connection, and maybe
 			// do adaptive caching based on last mod time.
@@ -617,7 +616,7 @@ class File extends \File {
 			return $cache->getWithSetCallback(
 				$key,
 				$this->repo->descriptionCacheExpiry ?: $cache::TTL_UNCACHEABLE,
-				function ( $oldValue, &$ttl, array &$setOpts ) use ( $renderUrl, $fname ) {
+				function ( $oldValue, &$ttl, array &$setOpts ) use ( $renderUrl ) {
 					wfDebug( "Fetching shared description from $renderUrl" );
 					$res = $this->repo->httpGet( $renderUrl );
 					// @phan-suppress-next-line PhanTypeMismatchDimFetch

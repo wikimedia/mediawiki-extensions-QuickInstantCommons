@@ -27,6 +27,7 @@ use LogicException;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Title;
 
 /**
  * Class to handle multiple HTTP requests
@@ -105,7 +106,9 @@ class MultiHttpClient implements LoggerAwareInterface {
 	public function __construct( array $options ) {
 		global $wgSitename;
 		$qicVersion = \ExtensionRegistry::getInstance()->getAllThings()['QuickInstantCommons']['version'];
-		$this->userAgent = 'QuickInstantCommons/' . $qicVersion . ' MediaWiki/' . MW_VERSION . '; ' . $wgSitename;
+		$this->userAgent = 'QuickInstantCommons/' . $qicVersion .
+			' MediaWiki/' . MW_VERSION . ' ' . rawurlencode( $wgSitename ) .
+			' (' . Title::newMainPage()->getCanonicalUrl() . ')';
 		if ( isset( $options['caBundlePath'] ) ) {
 			$this->caBundlePath = $options['caBundlePath'];
 			if ( !file_exists( $this->caBundlePath ) ) {
@@ -378,11 +381,11 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 * @param array &$req HTTP request map
 	 * @phpcs:ignore Generic.Files.LineLength
 	 * @phan-param array{url:string,proxy?:?string,query:mixed,method:string,body:string|resource,headers:string[],stream?:resource,flags:array} $req
-	 * @suppress PhanTypePossiblyInvalidDimOffset
 	 * @return resource
 	 * @throws Exception
 	 */
 	protected function getCurlHandle( array &$req ) {
+		global $wgCanonicalServer;
 		// TODO: I did a test of reusing curl handles. On a long page, that caused time
 		// to go from 139 seconds -> 135. On a medium page it went 19.0 -> 18.1 seconds.
 		// For simplicity, only cache a single handler
@@ -421,8 +424,15 @@ class MultiHttpClient implements LoggerAwareInterface {
 			throw new Exception( "HTTP body specified for a non PUT/POST request." );
 		}
 
+		if ( !isset( $req['headers'] ) ) {
+			$req['headers'] = [];
+		}
 		if ( !isset( $req['headers']['user-agent'] ) ) {
 			$req['headers']['user-agent'] = $this->userAgent;
+		}
+		if ( !isset( $req['headers']['referer'] ) ) {
+			// T400881
+			$req['headers']['referer'] = $wgCanonicalServer;
 		}
 
 		$headers = [];

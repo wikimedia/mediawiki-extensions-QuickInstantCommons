@@ -562,10 +562,11 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 		if ( $this->mApiBase ) {
 			$url = wfAppendQuery( $this->mApiBase, $query );
 		} else {
-			$url = $this->makeUrl( $query, 'api' );
+			$url = (string)$this->makeUrl( $query, 'api' );
 		}
 
-		return wfExpandUrl( $url, PROTO_HTTP );
+		$urlUtils = MediaWikiServices::getInstance()->getUrlUtils();
+		return (string)$urlUtils->expand( $url, PROTO_HTTP );
 	}
 
 	/**

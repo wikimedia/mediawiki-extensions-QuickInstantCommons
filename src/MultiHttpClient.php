@@ -44,7 +44,6 @@ use Psr\Log\NullLogger;
  *   - flags    : map of boolean flags which supports:
  *                  - relayResponseHeaders : write out header via header()
  * Request maps can use integer index 0 instead of 'method' and 1 instead of 'url'.
- *
  */
 class MultiHttpClient implements LoggerAwareInterface {
 	/** @var resource curl_multi_init() handle */

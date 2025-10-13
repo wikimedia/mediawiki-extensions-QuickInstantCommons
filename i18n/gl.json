@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+			"Toliño"
+		]
+	},
+	"quickinstantcommons-desc": "Permite usar imaxes de Wikimedia Commons cun alto rendemento",
+	"quickinstantcommons-missinghandler": "Falta a extensión do xestor multimedia para este formato de ficheiro. Se cadra as funcións multimedia avanzadas non funcionarán a menos que o ficheiro sexa [$1 visto en $2].",
+	"quickinstantcommons-shared-repo": "repositorio compartido"
+}

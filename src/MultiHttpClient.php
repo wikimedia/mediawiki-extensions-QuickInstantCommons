@@ -27,6 +27,7 @@ use MediaWiki\Title\Title;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use RuntimeException;
 
 /**
  * Class to handle multiple HTTP requests
@@ -150,10 +151,11 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 * 		list( $rcode, $rdesc, $rhdrs, $rbody, $rerr ) = $http->run( $req );
 	 * @endcode
 	 * @param array $req HTTP request array
+	 * @param string $caller The method making these requests, for attribution in logs
 	 * @return array Response array for request
 	 */
-	public function run( array $req ) {
-		return $this->runMulti( [ $req ] )[0]['response'];
+	public function run( array $req, $caller = __METHOD__ ) {
+		return $this->runMulti( [ $req ], $caller )[0]['response'];
 	}
 
 	/**
@@ -177,15 +179,16 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 * method/URL entries will also be changed to use the corresponding string keys.
 	 *
 	 * @param array[] $reqs Map of HTTP request arrays
+	 * @param string $caller The method making these requests, for attribution in logs
 	 * @return array[] $reqs With response array populated for each
 	 */
-	public function runMulti( array $reqs ) {
+	public function runMulti( array $reqs, $caller = __METHOD__ ) {
 		$this->assertNotInAsyncRequest();
 		$this->normalizeRequests( $reqs );
 
 		if ( $this->isCurlEnabled() ) {
 			$this->runMultiCurl( $reqs );
-			return $this->runMultiCurlFinish( $reqs );
+			return $this->runMultiCurlFinish( $reqs, $caller );
 		} else {
 			throw new LogicException( "Curl php extension needs to be installed" );
 		}
@@ -213,7 +216,11 @@ class MultiHttpClient implements LoggerAwareInterface {
 		}
 	}
 
-	public function finishMultiAsync() {
+	/**
+	 * @param string $caller The method making these requests, for attribution in logs
+	 * @return array[] $reqs With response array populated for each
+	 */
+	public function finishMultiAsync( $caller = __METHOD__ ) {
 		// This is the simplest version. An improved version could allow overlapping requests,
 		// and manage if someone requests a url in sync fashion that was previously asynced, etc.
 		// Maybe with callbacks instead. But that sounds really complicated.
@@ -222,7 +229,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 			throw new LogicException( "Not in an async request!" );
 		}
 
-		$res = $this->runMultiCurlFinish( $this->inFlightState );
+		$res = $this->runMultiCurlFinish( $this->inFlightState, $caller );
 		$this->inFlightState = null;
 		return $res;
 	}
@@ -279,43 +286,52 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 * Complete all the queued up requests
 	 *
 	 * @param array &$reqs
+	 * @param string $caller The method making these requests, for attribution in logs
 	 * @return array List of requests and their results
 	 * @suppress PhanTypeInvalidDimOffset
 	 */
-	private function runMultiCurlFinish( array &$reqs ) {
+	private function runMultiCurlFinish( array &$reqs, $caller = __METHOD__ ) {
 		$selectTimeout = $this->getSelectTimeout();
+
 		$infos = [];
 		// Execute the cURL handles concurrently...
 		$active = null; // handles still being processed
 		do {
-			// Send/recieve all pending data. e.g. read responses.
-			do {
-				$mrc = curl_multi_exec( $this->cmh, $active );
-				// A request probably completed, so read its info.
-				$info = curl_multi_info_read( $this->cmh );
-				if ( $info !== false ) {
-					$infos[(int)$info['handle']] = $info;
-				}
-			// In old versions of curl, we had to loop this. Should not matter in new versions.
-			} while ( $mrc == CURLM_CALL_MULTI_PERFORM );
+			// Do any available work...
+			$mrc = curl_multi_exec( $this->cmh, $active );
+
+			if ( $mrc !== CURLM_OK ) {
+				$error = curl_multi_strerror( $mrc );
+				$this->logger->error( 'curl_multi_exec() failed: {error}', [
+					'error' => $error,
+					'exception' => new RuntimeException(),
+					'method' => $caller,
+				] );
+				break;
+			}
 
 			// Wait (if possible) for available work...
-			if ( $active > 0 && $mrc == CURLM_OK && curl_multi_select( $this->cmh, $selectTimeout ) == -1 ) {
-				// This bug should be fixed now in theory!
-				// So we should not reach this code unless we hit the select timeout.
-				// PHP bug 63411; https://curl.haxx.se/libcurl/c/curl_multi_fdset.html
-				usleep( 5000 ); // 5ms
+			if ( $active > 0 && curl_multi_select( $this->cmh, $selectTimeout ) === -1 ) {
+				$errno = curl_multi_errno( $this->cmh );
+				$error = curl_multi_strerror( $errno );
+				$this->logger->error( 'curl_multi_select() failed: {error}', [
+					'error' => $error,
+					'exception' => new RuntimeException(),
+					'method' => $caller,
+				] );
 			}
-		} while ( $active > 0 && $mrc == CURLM_OK );
+		} while ( $active > 0 );
 
-		// Make sure we got them all.
-		$info = false;
+		$queuedMessages = null;
 		do {
-			$info = curl_multi_info_read( $this->cmh );
-			if ( $info !== false ) {
+			$info = curl_multi_info_read( $this->cmh, $queuedMessages );
+			if ( $info !== false && $info['msg'] === CURLMSG_DONE ) {
+				// Note: cast to integer even works on PHP 8.0+ despite the
+				// handle being an object not a resource, because CurlHandle
+				// has a backwards-compatible cast_object handler.
 				$infos[(int)$info['handle']] = $info;
 			}
-		} while ( $info );
+		} while ( $queuedMessages > 0 );
 
 		// Remove all of the added cURL handles and check for errors...
 		foreach ( $reqs as $index => &$req ) {
@@ -329,9 +345,12 @@ class MultiHttpClient implements LoggerAwareInterface {
 					if ( function_exists( 'curl_strerror' ) ) {
 						$req['response']['error'] .= " " . curl_strerror( $errno );
 					}
-					// @phan-suppress-next-line PhanTypeConversionFromArray
-					$this->logger->warning( "Error fetching URL \"" . $req['url'] . "\": " .
-						$req['response']['error'] );
+					$this->logger->error( 'Error fetching URL "{url}": {error}', [
+						'url' => $req['url'],
+						'error' => $req['response']['error'],
+						'exception' => new RuntimeException(),
+						'method' => $caller,
+					] );
 				} else {
 					$this->logger->debug(
 						"HTTP complete: {method} {url} code={response_code} size={size} " .

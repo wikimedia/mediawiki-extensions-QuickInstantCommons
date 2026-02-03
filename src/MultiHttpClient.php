@@ -482,23 +482,29 @@ class MultiHttpClient implements LoggerAwareInterface {
 	}
 
 	/**
-	 * @return resource
+	 * @phpcs:ignore MediaWiki.Commenting.FunctionComment.ObjectTypeHintReturn
+	 * @return resource|object
+	 * @throws \Exception
 	 */
 	protected function getCurlMulti() {
-		// Note, this is access directly by other methods!
 		if ( !$this->cmh ) {
 			$cmh = curl_multi_init();
 			// Limit the size of the idle connection cache such that consecutive parallel
 			// request batches to the same host can avoid having to keep making connections
 			curl_multi_setopt( $cmh, CURLMOPT_MAXCONNECTS, (int)$this->maxConnsPerHost );
 			$this->cmh = $cmh;
+		}
 
-			// CURLMOPT_MAX_HOST_CONNECTIONS is available since PHP 7.0.7 and cURL 7.30.0
-			if ( version_compare( curl_version()['version'], '7.30.0', '>=' ) ) {
-				// Limit the number of in-flight requests for any given host
-				curl_multi_setopt( $this->cmh, CURLMOPT_MAX_HOST_CONNECTIONS, (int)$this->maxConnsPerHost );
-			}
-			curl_multi_setopt( $this->cmh, CURLMOPT_PIPELINING, $this->usePipelining ? CURLPIPE_MULTIPLEX : 0 );
+		$curlVersion = curl_version()['version'];
+
+		// CURLMOPT_MAX_HOST_CONNECTIONS is available since PHP 7.0.7 and cURL 7.30.0
+		if ( version_compare( $curlVersion, '7.30.0', '>=' ) ) {
+			// Limit the number of in-flight requests for any given host
+			curl_multi_setopt( $this->cmh, CURLMOPT_MAX_HOST_CONNECTIONS, (int)$this->maxConnsPerHost );
+		}
+
+		if ( $this->usePipelining ) {
+			curl_multi_setopt( $this->cmh, CURLMOPT_PIPELINING, CURLPIPE_MULTIPLEX );
 		}
 
 		return $this->cmh;

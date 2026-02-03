@@ -46,8 +46,8 @@ use Psr\Log\NullLogger;
  * Request maps can use integer index 0 instead of 'method' and 1 instead of 'url'.
  */
 class MultiHttpClient implements LoggerAwareInterface {
-	/** @var resource curl_multi_init() handle */
-	protected $cmh;
+	/** @var resource|null curl_multi_init() handle */
+	protected $cmh = null;
 	/** @var string|null SSL certificates path */
 	protected $caBundlePath;
 	/** @var float */
@@ -364,7 +364,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 				// reuse the handle
 				$this->curlHandleCache = $ch;
 			} else {
-				curl_close( $ch );
+				unset( $ch );
 			}
 		}
 		$this->handles = [];
@@ -612,9 +612,11 @@ class MultiHttpClient implements LoggerAwareInterface {
 		}
 		if ( $this->cmh ) {
 			curl_multi_close( $this->cmh );
+			$this->cmh = null;
 		}
 		if ( $this->curlHandleCache ) {
-			curl_close( $this->curlHandleCache );
+			// @phan-suppress-next-line PhanTypeObjectUnsetDeclaredProperty
+			unset( $this->curlHandleCache );
 		}
 	}
 }

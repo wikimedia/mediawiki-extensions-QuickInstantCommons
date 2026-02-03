@@ -125,6 +125,7 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 		$this->logger = LoggerFactory::getInstance( 'quickinstantcommons' );
 
 		$options = [
+			'proxy' => (string)$config->get( 'HTTPProxy' ),
 			'maxReqTimeout' => $config->get( 'HTTPMaxTimeout' ),
 			'maxConnTimeout' => $config->get( 'HTTPMaxConnectTimeout' ),
 			'connTimeout' => $config->get( 'HTTPConnectTimeout' ) ?: $config->get( 'HTTPMaxConnectTimeout' ),

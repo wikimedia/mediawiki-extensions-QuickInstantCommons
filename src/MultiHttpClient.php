@@ -102,12 +102,16 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 *   - caBundlePath    : path to specific Certificate Authority bundle (if any)
 	 */
 	public function __construct( array $options ) {
-		global $wgSitename, $wgQuickInstantCommonsUserAgentInfo;
-		$qicVersion = \ExtensionRegistry::getInstance()->getAllThings()['QuickInstantCommons']['version'];
-		$info = $wgQuickInstantCommonsUserAgentInfo ?: Title::newMainPage()->getCanonicalUrl();
-		$this->userAgent = 'QuickInstantCommons/' . $qicVersion .
-			' MediaWiki/' . MW_VERSION . ' ' . rawurlencode( $wgSitename ) .
-			' (' . $info . ')';
+		global $wgSitename, $wgQuickInstantCommonsUserAgentInfo, $wgQuickInstantCommonsUserAgentOverride;
+		if ( $wgQuickInstantCommonsUserAgentOverride ) {
+			$this->userAgent = $wgQuickInstantCommonsUserAgentOverride;
+		} else {
+			$qicVersion = \ExtensionRegistry::getInstance()->getAllThings()['QuickInstantCommons']['version'];
+			$info = $wgQuickInstantCommonsUserAgentInfo ?: Title::newMainPage()->getCanonicalUrl();
+			$this->userAgent = 'QuickInstantCommons/' . $qicVersion .
+				' MediaWiki/' . MW_VERSION . ' ' . rawurlencode( $wgSitename ) .
+				' (' . $info . ')';
+		}
 		if ( isset( $options['caBundlePath'] ) ) {
 			$this->caBundlePath = $options['caBundlePath'];
 			if ( !file_exists( $this->caBundlePath ) ) {

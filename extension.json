@@ -50,6 +50,14 @@
 		"QuickInstantCommonsPrefetchMaxLimit": {
 			"value": 1000,
 			"description": "Max number of images to prefetch"
+		},
+		"QuickInstantCommonsUserAgentInfo": {
+			"value": false,
+			"description": "Contact info to include in the user-agent string such as a url or email"
+		},
+		"QuickInstantCommonsUserAgentOverride": {
+			"value": false,
+			"description": "Totally override the User-Agent of QuickInstantCommons. Prefer to use $wgQuickInstantCommonsUserAgentInfo instead if possible."
 		}
 	},
 	"manifest_version": 2

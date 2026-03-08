@@ -24,7 +24,8 @@ class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBefor
 	}
 
 	public static function setup() {
-		global $wgForeignFileRepos, $wgUploadDirectory, $wgUseQuickInstantCommons;
+		global $wgForeignFileRepos, $wgUploadDirectory, $wgUseQuickInstantCommons,
+			$wgThumbnailSteps, $wgThumbnailStepsRatio;
 
 		if ( $wgUseQuickInstantCommons ) {
 			$wgForeignFileRepos[] = [
@@ -41,6 +42,9 @@ class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBefor
 				// Normally set by SetupDynamicConfig.php.
 				'backend' => 'wikimediacommons-backend'
 			];
+			// If transformVia404 is true, its important this matches Wikipedia's value.
+			$wgThumbnailSteps = [ 20, 40, 60, 120, 250, 330, 500, 960, 1280, 1920, 3840 ];
+			$wgThumbnailStepsRatio = 1;
 		}
 	}
 

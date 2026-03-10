@@ -71,18 +71,29 @@ class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBefor
 		$dbr = $this->dbProvider->getReplicaDatabase();
 
 		// Get all images previously used in this article that aren't local.
+		// Handle both MW 1.46+ linktarget and older versions using il_to. (T419819)
+		if ( version_compare( MW_VERSION, '1.46', '<' ) ) {
+			$tables = [ 'imagelinks', 'image' ];
+			$field = 'il_to';
+			$joinConds = [
+				'image' => [ 'LEFT JOIN', 'il_to = img_name' ],
+			];
+		} else {
+			$tables = [ 'imagelinks', 'linktarget', 'image' ];
+			$field = 'lt_title';
+			$joinConds = [
+				'linktarget' => [ 'JOIN', 'il_target_id = lt_id' ],
+				'image' => [ 'LEFT JOIN', 'lt_title = img_name' ],
+			];
+		}
+
 		$res = $dbr->selectFieldValues(
-			[ 'imagelinks', 'image' ],
-			'il_to',
+			$tables,
+			$field,
 			[ 'il_from' => $title->getArticleId(), 'img_name' => null ],
 			__METHOD__,
 			[ 'LIMIT' => $limit ],
-			[
-				'image' => [
-					'LEFT JOIN',
-					'il_to = img_name'
-				]
-			]
+			$joinConds
 		);
 		if ( count( $res ) ) {
 			$this->repoGroup->forEachForeignRepo( static function ( $repo, $res ) {

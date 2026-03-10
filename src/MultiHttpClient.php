@@ -497,7 +497,6 @@ class MultiHttpClient implements LoggerAwareInterface {
 
 		curl_setopt( $ch, CURLOPT_WRITEFUNCTION,
 			static function ( $ch, $data ) use ( &$req ) {
-				// @phan-suppress-next-line PhanTypeArraySuspiciousNullable
 				$req['response']['body'] .= $data;
 
 				return strlen( $data );

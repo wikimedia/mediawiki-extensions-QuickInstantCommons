@@ -22,6 +22,8 @@
  */
 namespace MediaWiki\Extension\QuickInstantCommons;
 
+use CurlHandle;
+use CurlMultiHandle;
 use LogicException;
 use MediaWiki\Title\Title;
 use Psr\Log\LoggerAwareInterface;
@@ -47,7 +49,7 @@ use RuntimeException;
  * Request maps can use integer index 0 instead of 'method' and 1 instead of 'url'.
  */
 class MultiHttpClient implements LoggerAwareInterface {
-	/** @var resource|null curl_multi_init() handle */
+	/** @var CurlMultiHandle|null curl_multi_init() handle */
 	protected $cmh = null;
 	/** @var string|null SSL certificates path */
 	protected $caBundlePath;
@@ -75,9 +77,9 @@ class MultiHttpClient implements LoggerAwareInterface {
 	protected $userAgent = 'QuickInstantCommons';
 	/** @var LoggerInterface */
 	protected $logger;
-	/** @var resource[] Hacky state sharing to make async requests work. */
+	/** @var CurlHandle[] Hacky state sharing to make async requests work. */
 	private $handles = [];
-	/** @var resource|null allegedly reusing curl handlers make things faster. When measuring
+	/** @var CurlHandle|null allegedly reusing curl handlers make things faster. When measuring
 	 * it seemed to very roughly be a 2-4% speed improvement.
 	 */
 	private $curlHandleCache = null;
@@ -399,8 +401,8 @@ class MultiHttpClient implements LoggerAwareInterface {
 	/**
 	 * @param array &$req HTTP request map
 	 * @phpcs:ignore Generic.Files.LineLength
-	 * @phan-param array{url:string,proxy?:?string,query:mixed,method:string,body:string|resource,headers:string[],stream?:resource,flags:array} $req
-	 * @return resource
+	 * @phan-param array{url:string,proxy?:?string,query:mixed,method:string,body:string|CurlHandle,headers:string[],stream?:resource,flags:array} $req
+	 * @return CurlHandle
 	 */
 	protected function getCurlHandle( array &$req ) {
 		global $wgCanonicalServer;
@@ -438,6 +440,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 		if ( $req['method'] !== 'GET' ) {
 			throw new LogicException( "Only GET supported" );
 		}
+		// phpcs:ignore MediaWiki.Usage.ForbiddenFunctions.is_resource
 		if ( is_resource( $req['body'] ) || $req['body'] !== '' ) {
 			throw new LogicException( "HTTP body specified for a non PUT/POST request." );
 		}
@@ -505,8 +508,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 	}
 
 	/**
-	 * @phpcs:ignore MediaWiki.Commenting.FunctionComment.ObjectTypeHintReturn
-	 * @return resource|object
+	 * @return CurlMultiHandle
 	 * @throws \Exception
 	 */
 	protected function getCurlMulti() {
@@ -537,7 +539,7 @@ class MultiHttpClient implements LoggerAwareInterface {
 	 * Get a time in seconds, formatted with microsecond resolution, or fall back to second
 	 * resolution on PHP 7.2
 	 *
-	 * @param resource $ch
+	 * @param CurlHandle $ch
 	 * @param int $oldOption
 	 * @param string $newConstName
 	 * @return string

@@ -37,7 +37,7 @@ class Hooks implements ContentGetParserOutputHook, ImageOpenShowImageInlineBefor
 				'thumbUrl' => 'https://upload.wikimedia.org/wikipedia/commons/thumb',
 				'fetchDescription' => true, // Optional
 				'descriptionCacheExpiry' => 43200, // 12 hours, optional (values are seconds)
-				'transformVia404' => true,
+				'transformVia404' => version_compare( MW_VERSION, '1.43.7', '>=' ),
 				'abbrvThreshold' => 160,
 				// Normally set by SetupDynamicConfig.php.
 				'backend' => 'wikimediacommons-backend'

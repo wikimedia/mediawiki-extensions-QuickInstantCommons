@@ -1,0 +1,11 @@
+{
+	"@metadata": {
+		"authors": [
+			"Wizzard"
+		]
+	},
+	"quickinstantcommons-desc": "Umožňuje vysokovýkonné používanie obrázkov z Wikimedia Commons",
+	"quickinstantcommons-missinghandler": "Chýba rozšírenie na spracovanie tohto formátu súboru. Pokročilé mediálne funkcie nemusia fungovať, pokiaľ si súbor [$1 nezobrazíte na $2].",
+	"quickinstantcommons-shared-repo": "zdieľanom úložisku",
+	"apihelp-query+filerepoinfo-paramvalue-prop-descriptionCacheExpiry": "Čas v sekundách, po ktorom vyprší vyrovnávacia pamäť popisov. Predvolená hodnota je 43200 (12 hodín)."
+}

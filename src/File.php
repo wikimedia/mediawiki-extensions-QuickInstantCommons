@@ -66,7 +66,7 @@ class File extends \File {
 	public static function newFromTitle( Title $title, $repo ) {
 		$data = $repo->fetchImageQuery(
 			$repo->getMetadataQuery( $title->getDBkey() ),
-			[ $repo, 'getMetadataCacheTime' ]
+			$repo->getMetadataCacheTime()
 		);
 
 		$info = $repo->getImageInfo( $data );
@@ -610,9 +610,7 @@ class File extends \File {
 				md5( $this->getName() )
 			);
 
-			// FIXME, in future we want to reuse the HTTP connection, and maybe
-			// do adaptive caching based on last mod time.
-			// Also we should return false for 404 instead of showing 404 page.
+			// FIXME: We should return false for 404 instead of showing 404 page.
 			return $cache->getWithSetCallback(
 				$key,
 				$this->repo->descriptionCacheExpiry ?: $cache::TTL_UNCACHEABLE,

@@ -196,15 +196,15 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 			// Keep in sync with File::newFromTitle.
 			$data = $this->fetchImageQuery(
 				$this->getMetadataQuery( reset( $files ) ),
-				[ $this, 'getMetadataCacheTime' ]
+				$this->getMetadataCacheTime()
 			);
 		} elseif ( count( $files ) === 0 ) {
 			$data = [];
 		} else {
 			$data = $this->fetchImageQuery( [
 				'titles' => implode( '|', $files ),
-				'prop' => 'imageinfo' ]
-			);
+				'prop' => 'imageinfo'
+			] );
 		}
 
 		if ( isset( $data['query']['pages'] ) ) {
@@ -245,7 +245,7 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 
 	/**
 	 * @param array $query
-	 * @param callable|int $cacheTTL
+	 * @param int $cacheTTL
 	 * @param array $prefetch Additional urls to fetch and cache with same TTL
 	 * @return array|null
 	 */
@@ -358,8 +358,9 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 				'iiurlwidth' => $width,
 				'iiurlheight' => $height,
 				'iiurlparam' => $otherParams,
-				'prop' => 'imageinfo' ],
-			[ $this, 'getMetadataCacheTime' ],
+				'prop' => 'imageinfo'
+			],
+			$this->getMetadataCacheTime(),
 			$extraFetch
 		);
 		$info = $this->getImageInfo( $data );
@@ -398,7 +399,7 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 			'iiurlparam' => $otherParams,
 			'prop' => 'imageinfo',
 			'uselang' => $lang,
-		], [ $this, 'getMetadataCacheTime' ] );
+		], $this->getMetadataCacheTime() );
 		$info = $this->getImageInfo( $data );
 
 		if ( $data && $info && isset( $info['thumberror'] ) ) {
@@ -585,7 +586,7 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 	 * HTTP GET request to a mediawiki API (with caching)
 	 * @param string $attribute Used in cache key creation, mostly
 	 * @param array $query The query parameters for the API request
-	 * @param int|callable $cacheTTL Time to live for the memcached caching or func.
+	 * @param int $cacheTTL Time to live for the memcached caching
 	 * @param array $prefetch Additional urls to prefetch.
 	 * @return string|null
 	 */
@@ -616,23 +617,14 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 			return $this->prefetchCache[$keys[0]];
 		}
 
-		$defaultTTL = is_callable( $cacheTTL ) ? 3600 : $cacheTTL;
-
 		return $this->wanCache->getWithSetCallback(
 			$keys[0],
-			$defaultTTL,
-			function ( $curValue, &$ttl ) use ( $urls, $keys, $cacheTTL, $defaultTTL ) {
+			$cacheTTL,
+			function ( $curValue, &$ttl ) use ( $urls, $keys, $cacheTTL ) {
 				global $wgQuickInstantCommonsPrefetchMaxLimit;
 				$res = $this->httpGet( $urls );
 				$html = $res && $res[0]['response']['code'] == 200 ? $res[0]['response']['body'] : false;
 				if ( $html !== false ) {
-					if ( is_callable( $cacheTTL ) ) {
-						$ttl = $cacheTTL( $html );
-						$this->logger->debug(
-							"Setting cache ttl for {url} = {ttl}",
-							[ 'url' => $urls[0], 'ttl' => $ttl ]
-						);
-					}
 					for ( $i = 1; $i < count( $res ); $i++ ) {
 						$preHtml = $res[$i]['response']['body'] ?? false;
 						$preCode = $res[$i]['response']['code'] ?? 0;
@@ -643,15 +635,10 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 							);
 							continue;
 						}
-						$newTTL = is_callable( $cacheTTL ) ? $cacheTTL( $preHtml ) : $defaultTTL;
-						$this->logger->debug(
-							"Setting cache ttl for prefetch {url} = {ttl}",
-							[ 'url' => $urls[$i], 'ttl' => $newTTL ]
-						);
 						$this->wanCache->set(
 							$keys[$i],
 							$preHtml,
-							$newTTL
+							$cacheTTL
 						);
 						// Have a limit to prevent memory leak, but
 						// want it hight then general limit so we still
@@ -856,21 +843,10 @@ class Repo extends \FileRepo implements \IForeignRepoWithMWApi {
 	}
 
 	/**
-	 * @param string $data
 	 * @return int
 	 */
-	public function getMetadataCacheTime( $data ) {
-		$items = FormatJson::decode( $data, true );
-		// If we can't find a timestamp, or we find multiple, don't do adaptive caching.
-		$ts = 0;
-		if ( isset( $items['query']['pages'] ) && count( $items['query']['pages'] ) === 1 ) {
-			$firstPage = reset( $items['query']['pages'] );
-			if ( isset( $firstPage['imageinfo'][0]['timestamp'] ) && count( $firstPage['imageinfo'] ) === 1 ) {
-				$ts = (int)wfTimestamp( TS_UNIX, $firstPage['imageinfo'][0]['timestamp'] );
-			}
-		}
-		// Things that have been modified recently have short cache time.
-		return $this->wanCache->adaptiveTTL( $ts, $this->apiMetadataExpiry, self::NEGATIVE_TTL );
+	public function getMetadataCacheTime() {
+		return $this->apiMetadataExpiry;
 	}
 
 	/**

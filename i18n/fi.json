@@ -1,8 +1,10 @@
 {
 	"@metadata": {
 		"authors": [
-			"MITO"
+			"MITO",
+			"Nike"
 		]
 	},
+	"quickinstantcommons-missinghandler": "Tämän tiedostomuodon käsittelylaajennusta ei ole asenettuna. Edistyneet mediaominaisuudet eivät välttämättä toimi tällä sivulla. Ne ovat käytettävissä kohteessa [$1 $2].",
 	"quickinstantcommons-shared-repo": "yhteinen varasto"
 }
